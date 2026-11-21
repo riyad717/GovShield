@@ -2165,7 +2165,7 @@
     }
 
     function showPage(pageId) {
-        const publicPages = ["login", "register"];
+        const publicPages = ["home", "login", "register"];
         if (!publicPages.includes(pageId) && !currentGovShieldUser) {
             pageId = "login";
         }
@@ -2401,13 +2401,7 @@
     }
 
 
-    /* DEMO ALERT */
-
-    setTimeout(function() {
-
-        showAlert();
-
-    }, 5000);
+    /* The alert banner now opens only when the "Test Security Alert" button is pressed. */
 
 </script>
 
