@@ -47,10 +47,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "govshield.db")
 MAX_BODY = 10 * 1024          # requests bigger than 10 KB are refused
 SESSION_TTL_SECONDS = 8 * 60 * 60
-AUTH_SESSIONS = {}  # in-memory demo sessions; all sessions expire when the server restarts
+# Login tokens live in the sessions table, so a server restart (Render sleeps and wakes) does not log anyone out.
 DEMO_PASSWORD_PREFIX = "GovDemo#"
 # Administrators have their own accounts (table admin_users) and their own login page.
-ADMIN_SESSIONS = {}  # administrator sessions; kept apart from citizen sessions
 ADMIN_USERNAME = os.environ.get("GOVSHIELD_ADMIN_USER", "admin").strip() or "admin"
 # Set GOVSHIELD_ADMIN_PASSWORD on the server. The fallback is for the local demo only.
 ADMIN_PASSWORD = os.environ.get("GOVSHIELD_ADMIN_PASSWORD", "GovAdmin#2026")
@@ -107,6 +106,14 @@ CREATE TABLE IF NOT EXISTS payments (
     method       TEXT NOT NULL CHECK (method IN ('bKash', 'Nagad', 'Card')),
     status       TEXT NOT NULL DEFAULT 'Paid',
     created_at   TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- Login tokens for citizens (kind = citizen) and administrators (kind = admin).
+CREATE TABLE IF NOT EXISTS sessions (
+    token      TEXT PRIMARY KEY,
+    kind       TEXT NOT NULL CHECK (kind IN ('citizen', 'admin')),
+    account_id INTEGER NOT NULL,
+    expires_at REAL NOT NULL
 );
 
 -- Administrator accounts. Completely separate from citizen accounts (authorized_users).
@@ -310,15 +317,56 @@ def authenticate_user(nid, password):
     return {"id": row["id"], "name": row["full_name"], "nid": row["nid_number"]}
 
 
-def session_user(handler):
+def create_session(kind, account_id):
+    """Stores a new login token in the database and returns it."""
+    token = secrets.token_urlsafe(32)
+    conn = connect()
+    try:
+        with conn:
+            conn.execute("DELETE FROM sessions WHERE expires_at < ?", (time.time(),))
+            conn.execute(
+                "INSERT INTO sessions (token, kind, account_id, expires_at) VALUES (?, ?, ?, ?)",
+                (token, kind, account_id, time.time() + SESSION_TTL_SECONDS),
+            )
+    finally:
+        conn.close()
+    return token
+
+
+def end_session(token):
+    if not token:
+        return
+    conn = connect()
+    try:
+        with conn:
+            conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+    finally:
+        conn.close()
+
+
+def session_account_id(kind, handler):
+    """The account id behind the Bearer token, if the token is valid, unexpired and of this kind."""
     header = handler.headers.get("Authorization", "")
     token = header[7:].strip() if header.startswith("Bearer ") else ""
-    session = AUTH_SESSIONS.get(token)
-    if not session:
+    if not token:
         return None
-    user_id, expires = session
-    if expires < time.time():
-        AUTH_SESSIONS.pop(token, None)
+    conn = connect()
+    try:
+        row = conn.execute(
+            "SELECT account_id, expires_at FROM sessions WHERE token = ? AND kind = ?", (token, kind)
+        ).fetchone()
+        if row and row["expires_at"] < time.time():
+            with conn:
+                conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+            return None
+        return row["account_id"] if row else None
+    finally:
+        conn.close()
+
+
+def session_user(handler):
+    user_id = session_account_id("citizen", handler)
+    if user_id is None:
         return None
     conn = connect()
     try:
@@ -326,7 +374,6 @@ def session_user(handler):
     finally:
         conn.close()
     if not row or not row["is_active"]:
-        AUTH_SESSIONS.pop(token, None)
         return None
     return {"id": row["id"], "name": row["full_name"], "nid": row["nid_number"]}
 
@@ -348,14 +395,8 @@ def authenticate_admin(username, password):
 
 
 def admin_session_user(handler):
-    header = handler.headers.get("Authorization", "")
-    token = header[7:].strip() if header.startswith("Bearer ") else ""
-    session = ADMIN_SESSIONS.get(token)
-    if not session:
-        return None
-    admin_id, expires = session
-    if expires < time.time():
-        ADMIN_SESSIONS.pop(token, None)
+    admin_id = session_account_id("admin", handler)
+    if admin_id is None:
         return None
     conn = connect()
     try:
@@ -363,10 +404,8 @@ def admin_session_user(handler):
     finally:
         conn.close()
     if not row or not row["is_active"]:
-        ADMIN_SESSIONS.pop(token, None)
         return None
     return {"id": row["id"], "username": row["username"], "name": row["full_name"]}
-
 
 def connect(read_only=False):
     if read_only:
@@ -822,8 +861,7 @@ class Handler(BaseHTTPRequestHandler):
             if not user:
                 self.audit_user = "NID " + mask_nid(nid)          # audit log only
                 raise ApiError(401, "Invalid National ID or password, or account not authorized.")
-            token = secrets.token_urlsafe(32)
-            AUTH_SESSIONS[token] = (user["id"], time.time() + SESSION_TTL_SECONDS)
+            token = create_session("citizen", user["id"])
             self.audit_user = user["name"]                        # audit log only
             log("AUTHENTICATED authorized demo account %s" % user["nid"])
             return 200, {"token": token, "user": {"name": user["name"], "nid": user["nid"]}}
@@ -846,7 +884,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError(405, "Method not allowed.")
             header = self.headers.get("Authorization", "")
             token = header[7:].strip() if header.startswith("Bearer ") else ""
-            AUTH_SESSIONS.pop(token, None)
+            end_session(token)
             return 200, {"ok": True}
 
         if path == "/api/me":
@@ -871,8 +909,7 @@ class Handler(BaseHTTPRequestHandler):
             if not admin:
                 self.audit_user = "Admin " + username
                 raise ApiError(401, "Invalid administrator username or password.")
-            token = secrets.token_urlsafe(32)
-            ADMIN_SESSIONS[token] = (admin["id"], time.time() + SESSION_TTL_SECONDS)
+            token = create_session("admin", admin["id"])
             self.audit_user = admin["name"]
             log("ADMIN LOGIN %s" % admin["username"])
             return 200, {"token": token, "admin": {"name": admin["name"], "username": admin["username"]}}
@@ -884,7 +921,7 @@ class Handler(BaseHTTPRequestHandler):
             if admin:
                 self.audit_user = admin["name"]
             header = self.headers.get("Authorization", "")
-            ADMIN_SESSIONS.pop(header[7:].strip() if header.startswith("Bearer ") else "", None)
+            end_session(header[7:].strip() if header.startswith("Bearer ") else "")
             return 200, {"ok": True}
 
         if path == "/api/admin/me":

@@ -558,8 +558,9 @@
         <button onclick="showPage('home')">Home</button>
         <button onclick="showPage('services')">Services</button>
         <button onclick="showPage('security')">Security</button>
-        <button onclick="showPage('login')">Login</button>
-        <button onclick="showPage('register')">Register</button>
+        <button id="navLogin" onclick="showPage('login')">Login</button>
+        <button id="navRegister" onclick="showPage('register')">Register</button>
+        <button id="navDashboard" onclick="showPage('dashboard')" style="display:none">Dashboard</button>
         <button id="navLogout" onclick="logoutDevice()" style="display:none">Logout</button>
     </nav>
 
@@ -1849,7 +1850,15 @@
         if (!publicPages.includes(pageId) && !currentGovShieldUser) {
             pageId = "login";
         }
-        document.getElementById("navLogout").style.display = currentGovShieldUser ? "" : "none";
+        // a logged-in citizen never sees the login or register forms
+        if (currentGovShieldUser && (pageId === "login" || pageId === "register")) {
+            pageId = "dashboard";
+        }
+        const loggedIn = Boolean(currentGovShieldUser);
+        document.getElementById("navLogin").style.display = loggedIn ? "none" : "";
+        document.getElementById("navRegister").style.display = loggedIn ? "none" : "";
+        document.getElementById("navDashboard").style.display = loggedIn ? "" : "none";
+        document.getElementById("navLogout").style.display = loggedIn ? "" : "none";
         document.querySelectorAll(".page").forEach(page => page.classList.remove("active"));
         const selectedPage = document.getElementById(pageId);
         if (selectedPage) {
