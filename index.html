@@ -556,7 +556,8 @@
         Gov<span>Shield</span>
     </div>
 
-    <nav>
+    <nav id="siteNav" aria-label="Main navigation">
+        <button type="button" class="nav-close" aria-label="Close menu">×</button>
         <button onclick="showPage('home')">Home</button>
         <button onclick="showPage('services')">Services</button>
         <button onclick="showPage('security')">Security</button>
@@ -565,6 +566,11 @@
         <button id="navDashboard" onclick="showPage('dashboard')" style="display:none">Dashboard</button>
         <button id="navLogout" onclick="logoutDevice()" style="display:none">Logout</button>
     </nav>
+
+    <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="siteNav">
+        <span></span><span></span><span></span>
+    </button>
+    <div class="nav-backdrop" aria-hidden="true"></div>
 
 </header>
 
@@ -2151,6 +2157,33 @@
         });
         document.addEventListener("keydown", function (event) {
             if (event.key === "Escape" && !modal.hidden) closeDemo();
+        });
+    })();
+</script>
+
+<script>
+    /* Phone menu: opens the navigation drawer, closes it on backdrop, Escape, or after a choice. */
+    (function () {
+        var toggle = document.querySelector(".nav-toggle");
+        var nav = document.getElementById("siteNav");
+        var backdrop = document.querySelector(".nav-backdrop");
+        function setNav(open) {
+            document.body.classList.toggle("nav-open", open);
+            toggle.setAttribute("aria-expanded", open ? "true" : "false");
+            toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu");
+        }
+        toggle.addEventListener("click", function () {
+            setNav(!document.body.classList.contains("nav-open"));
+        });
+        backdrop.addEventListener("click", function () { setNav(false); });
+        nav.addEventListener("click", function (event) {
+            if (event.target.closest("button")) setNav(false);
+        });
+        document.addEventListener("keydown", function (event) {
+            if (event.key === "Escape") setNav(false);
+        });
+        window.matchMedia("(min-width: 601px)").addEventListener("change", function (event) {
+            if (event.matches) setNav(false);
         });
     })();
 </script>
