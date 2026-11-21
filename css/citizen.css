@@ -338,7 +338,7 @@ textarea:focus {
     }
 }
 
-/* ---------- Footer (placeholders until the office supplies official details) ---------- */
+/* ---------- Footer and demo notice ---------- */
 
 .site-footer {
     margin-top: 48px;
@@ -365,8 +365,62 @@ textarea:focus {
     gap: 8px 18px;
 }
 
-.footer-links span {
+.footer-link {
+    background: none;
+    border: 0;
+    padding: 0;
+    font: inherit;
     color: #bae6fd;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+}
+
+.footer-link:hover,
+.footer-link:focus-visible {
+    color: #ffffff;
+    outline: 2px solid #7dd3fc;
+    outline-offset: 3px;
+}
+
+.footer-disclaimer {
+    color: #fde68a;
+}
+
+.demo-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 20, 35, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 1000;
+}
+
+.demo-modal[hidden] {
+    display: none;
+}
+
+.demo-modal-box {
+    background: #ffffff;
+    color: #1e293b;
+    max-width: 420px;
+    width: 100%;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+}
+
+.demo-modal-box h2 {
+    margin: 0 0 12px;
+    color: #0b3450;
+    font-size: 20px;
+}
+
+.demo-modal-box p {
+    margin: 0 0 12px;
+    line-height: 1.5;
 }
 
 .footer-meta {
