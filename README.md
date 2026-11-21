@@ -107,3 +107,13 @@ The administrator console is a separate page at `/admin.html`. The citizen porta
 - Administrator login is `POST /api/admin/login`, the session check is `GET /api/admin/me` and logout is `POST /api/admin/logout`. Citizen and administrator tokens are signed with different kinds, so one can never open the other's pages.
 - Frontend code is in `admin.html`, `js/admin.js` and `css/admin.css`. Backend code is in `server.py`: the `admin_users` and `audit_log` tables, `record_audit`, the `admin_*` helpers and `_admin_api`.
 - Older databases are upgraded on start. The `detail` column is added to `audit_log`, and the `payer_nid` column to `payments`. Payments made before this upgrade have no payer link, so they count toward totals but not toward a citizen's record.
+
+## Hosting on cPanel (Setup Python App)
+
+`passenger_wsgi.py` runs the same server code through cPanel's Python App (Passenger). It needs no extra packages, only Python 3.8 or newer and a writable folder for `govshield.db`.
+
+1. cPanel → Setup Python App → Create Application. Choose a Python version (3.8 or newer), application root `govshield`, application URL `demo.pureivia.com`, startup file `passenger_wsgi.py`, entry point `application`.
+2. Optional environment variables: `GOVSHIELD_SECRET` (a long random text for signing logins) and `GOVSHIELD_ADMIN_PASSWORD`.
+3. Upload `GovShield_vN.zip` to the home folder and run the update command from the terminal (see the release notes), then press Restart in the Python App screen.
+
+Updates keep the live database because the command skips `govshield.db`.
