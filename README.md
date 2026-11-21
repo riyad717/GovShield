@@ -86,9 +86,9 @@ These pages now work and are served from `js/` and `css/`:
 
 `js/api.js` and `js/helpers.js` hold shared code. The original versions of these files were not supplied, so they were rewritten.
 
-## Security Admin Dashboard
+## Administrator Console (separate from the citizen portal)
 
-Open **Admin** from the top menu after logging in. The console reads live data from the server:
+The administrator console is a separate page at `/admin.html`. The citizen portal does not link to it. Administrators log in there with their own username and password, and the console reads live data from the server:
 
 - **Overview**: six KPI tiles (citizens, applications, payments, logins today, failed logins today, security alerts), four charts (14-day activity, application status, applications by service, payments by method) and the latest activity.
 - **Applications**: search, status and service filters, paging, and a details window with the application's timeline and its activity history. An administrator can change the status there.
@@ -98,9 +98,11 @@ Open **Admin** from the top menu after logging in. The console reads live data f
 - **Security**: failed logins by address and the High-severity alerts.
 - **Export CSV** on each tab downloads the full list for that tab.
 - The page refreshes every 15 seconds while it is open and redraws only when the data changes.
-- Recorded actions: Register, Login, Logout, Track (viewing the application list), Application, Payment, Document (download) and Status (administrator change).
-- Only administrator accounts can open the console. The accounts are listed in the `GOVSHIELD_ADMIN_NIDS` environment variable (comma-separated NIDs). The default is `1000000001`. Other accounts see a "Restricted" notice.
+- Recorded actions: Register, Login, Logout, Track (viewing the application list), Application, Payment, Document (download), Status (administrator change), Admin login and Admin logout.
+- Administrators have their own accounts (table `admin_users`) and their own sessions. Citizen logins are refused on the administrator page, and administrator logins are refused on the citizen portal.
+- The administrator is set by the `GOVSHIELD_ADMIN_USER` variable (default `admin`) and the `GOVSHIELD_ADMIN_PASSWORD` variable. The password is applied on every start. The fallback `GovAdmin#2026` is for the local demo only, so set your own password on the server.
 - Charts use Chart.js from a CDN, so they need an internet connection. Without it the tables still work and the chart areas show a short note.
 - Admin data comes from `/api/admin/overview`, `/api/admin/applications`, `/api/admin/payments`, `/api/admin/citizens` and `/api/admin/audit`. The status change is `POST /api/admin/applications/<id>/status`. The citizen activity endpoint is `POST /api/activity`.
-- Frontend code is in `js/admin.js` and `css/admin.css`. Backend code is in `server.py`: the `audit_log` table, `record_audit`, the `admin_*` helpers and `_admin_api`.
+- Administrator login is `POST /api/admin/login`, the session check is `GET /api/admin/me` and logout is `POST /api/admin/logout`. These use a separate session store from citizens.
+- Frontend code is in `admin.html`, `js/admin.js` and `css/admin.css`. Backend code is in `server.py`: the `admin_users` and `audit_log` tables, `record_audit`, the `admin_*` helpers and `_admin_api`.
 - Older databases are upgraded on start. The `detail` column is added to `audit_log`, and the `payer_nid` column to `payments`. Payments made before this upgrade have no payer link, so they count toward totals but not toward a citizen's record.

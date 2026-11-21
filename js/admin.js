@@ -79,16 +79,50 @@ function admPagerHtml(info, tab) {
         '<button class="adm-btn small" data-page="' + tab + ':1"' + (info.page >= info.pages ? " disabled" : "") + ">Next</button></span>";
 }
 
+/* ---------- request helper with its own administrator session ---------- */
+
+const ADM_TOKEN_KEY = "govshield_admin_session";   // separate from the citizen login key
+
+async function adminRequest(path, options) {
+    options = options || {};
+    const headers = {};
+    const token = sessionStorage.getItem(ADM_TOKEN_KEY);
+    if (token) headers["Authorization"] = "Bearer " + token;
+    let body = options.body;
+    if (body && typeof body !== "string") {
+        body = JSON.stringify(body);
+        headers["Content-Type"] = "application/json";
+    }
+    let response;
+    try {
+        response = await fetch(path, { method: options.method || "GET", headers: headers, body: body });
+    } catch (e) {
+        throw new Error("Cannot reach the server. Make sure the server is running.");
+    }
+    let data = {};
+    try { data = await response.json(); } catch (e) { /* empty body */ }
+    if (response.status === 401 && !options.keepSession) {
+        // the administrator session has ended: go back to the login form
+        sessionStorage.removeItem(ADM_TOKEN_KEY);
+        const error = new Error(data.error || "Please log in as an administrator.");
+        error.sessionEnded = true;
+        admShowLogin(error.message);
+        throw error;
+    }
+    if (!response.ok) throw new Error(data.error || "Request failed.");
+    return data;
+}
+
 /* ---------- loading ---------- */
 
 async function admLoad() {
     try {
         const results = await Promise.all([
-            apiRequest("/api/admin/overview"),
-            apiRequest("/api/admin/applications"),
-            apiRequest("/api/admin/payments"),
-            apiRequest("/api/admin/citizens"),
-            apiRequest("/api/admin/audit")
+            adminRequest("/api/admin/overview"),
+            adminRequest("/api/admin/applications"),
+            adminRequest("/api/admin/payments"),
+            adminRequest("/api/admin/citizens"),
+            adminRequest("/api/admin/audit")
         ]);
         admEl("admDenied").hidden = true;
         admSet("admLive", "Live · updated " + new Date().toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" }));
@@ -100,6 +134,7 @@ async function admLoad() {
             admRender();
         }
     } catch (error) {
+        if (error.sessionEnded) return;     // the login form is already showing
         const denied = /administrator/i.test(error.message);
         admEl("admDenied").hidden = !denied;
         admSet("admLive", denied ? "Restricted" : "Connection problem");
@@ -408,7 +443,7 @@ async function admSaveStatus() {
     const button = admEl("app-save-status");
     if (button) button.disabled = true;
     try {
-        await apiRequest("/api/admin/applications/" + encodeURIComponent(id) + "/status", {
+        await adminRequest("/api/admin/applications/" + encodeURIComponent(id) + "/status", {
             method: "POST",
             body: { status: status }
         });
@@ -469,18 +504,71 @@ function admExport() {
 
 /* ---------- page lifecycle ---------- */
 
-onPageShow("admin", function () {
+/* ---------- login, logout and page start (administrator page only) ---------- */
+
+function admShowLogin(message) {
+    clearInterval(admTimer);
+    admTimer = null;
+    admSignature = "";
+    admEl("admin").hidden = true;
+    admEl("adminLogin").hidden = false;
+    admEl("admLogout").hidden = true;
+    admSet("admWho", "");
+    admSet("adminLoginMsg", message || "");
+    admEl("adminPassword").value = "";
+}
+
+function admShowConsole(name) {
+    admEl("adminLogin").hidden = true;
+    admEl("admin").hidden = false;
+    admEl("admLogout").hidden = false;
+    admSet("admWho", "Signed in as " + (name || "Administrator"));
+    admSet("adminLoginMsg", "");
     admLoad();
     clearInterval(admTimer);
     admTimer = setInterval(admLoad, ADM_REFRESH_MS);
-});
+}
 
-document.addEventListener("pageshow", function (event) {
-    if (event.detail !== "admin") {
-        clearInterval(admTimer);
-        admTimer = null;
+async function adminBoot() {
+    if (!sessionStorage.getItem(ADM_TOKEN_KEY)) {
+        admShowLogin("");
+        return;
     }
-});
+    try {
+        const me = await adminRequest("/api/admin/me");
+        admShowConsole(me.admin.name);
+    } catch (error) {
+        if (!error.sessionEnded) admShowLogin(error.message);
+    }
+}
+
+async function adminLogin(event) {
+    event.preventDefault();
+    const button = admEl("adminLoginBtn");
+    button.disabled = true;
+    admSet("adminLoginMsg", "");
+    try {
+        const result = await adminRequest("/api/admin/login", {
+            method: "POST",
+            body: { username: admEl("adminUser").value.trim(), password: admEl("adminPassword").value },
+            keepSession: true
+        });
+        sessionStorage.setItem(ADM_TOKEN_KEY, result.token);
+        admShowConsole(result.admin.name);
+    } catch (error) {
+        admSet("adminLoginMsg", error.message);
+    } finally {
+        button.disabled = false;
+    }
+}
+
+async function adminLogout() {
+    try {
+        await adminRequest("/api/admin/logout", { method: "POST", keepSession: true });
+    } catch (e) { /* the local session is cleared below anyway */ }
+    sessionStorage.removeItem(ADM_TOKEN_KEY);
+    admShowLogin("You have logged out.");
+}
 
 document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("#admin .adm-tab").forEach(function (button) {
@@ -517,6 +605,9 @@ document.addEventListener("DOMContentLoaded", function () {
         if (activityButton) { admShowActivityFor(activityButton.dataset.activity); }
     });
 
+    admEl("adminLoginForm").addEventListener("submit", adminLogin);
+    admEl("admLogout").addEventListener("click", adminLogout);
+    adminBoot();
     admEl("admRefresh").addEventListener("click", admLoad);
     admEl("admExport").addEventListener("click", admExport);
     admEl("app-modal-close").addEventListener("click", admCloseApp);

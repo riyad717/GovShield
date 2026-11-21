@@ -49,9 +49,11 @@ MAX_BODY = 10 * 1024          # requests bigger than 10 KB are refused
 SESSION_TTL_SECONDS = 8 * 60 * 60
 AUTH_SESSIONS = {}  # in-memory demo sessions; all sessions expire when the server restarts
 DEMO_PASSWORD_PREFIX = "GovDemo#"
-# Only these NIDs can open the admin dashboard. Change with the GOVSHIELD_ADMIN_NIDS
-# environment variable (comma-separated), e.g. "1000000001,1000000002".
-ADMIN_NIDS = {n.strip() for n in os.environ.get("GOVSHIELD_ADMIN_NIDS", "1000000001").split(",") if n.strip()}
+# Administrators have their own accounts (table admin_users) and their own login page.
+ADMIN_SESSIONS = {}  # administrator sessions; kept apart from citizen sessions
+ADMIN_USERNAME = os.environ.get("GOVSHIELD_ADMIN_USER", "admin").strip() or "admin"
+# Set GOVSHIELD_ADMIN_PASSWORD on the server. The fallback is for the local demo only.
+ADMIN_PASSWORD = os.environ.get("GOVSHIELD_ADMIN_PASSWORD", "GovAdmin#2026")
 APP_STATUSES = ("Pending", "Processing", "Approved", "Rejected")
 ACTIVITY_ACTIONS = ("Track", "Document")     # citizen actions the portal reports itself
 
@@ -105,6 +107,16 @@ CREATE TABLE IF NOT EXISTS payments (
     method       TEXT NOT NULL CHECK (method IN ('bKash', 'Nagad', 'Card')),
     status       TEXT NOT NULL DEFAULT 'Paid',
     created_at   TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- Administrator accounts. Completely separate from citizen accounts (authorized_users).
+CREATE TABLE IF NOT EXISTS admin_users (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    username      TEXT NOT NULL UNIQUE,
+    full_name     TEXT NOT NULL,
+    password_salt TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    is_active     INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1))
 );
 
 -- Admin dashboard: one row per important action (login, logout, register, apply, pay).
@@ -269,6 +281,18 @@ def seed_authorized_users(conn):
             )
 
 
+def seed_admin_user(conn):
+    """Creates or refreshes the single administrator account from the server settings."""
+    salt = secrets.token_hex(16)
+    digest = password_digest(ADMIN_PASSWORD, salt)
+    conn.execute(
+        "INSERT INTO admin_users (username, full_name, password_salt, password_hash) VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(username) DO UPDATE SET password_salt = excluded.password_salt, "
+        "password_hash = excluded.password_hash, is_active = 1",
+        (ADMIN_USERNAME, "System Administrator", salt, digest),
+    )
+
+
 def authenticate_user(nid, password):
     conn = connect()
     try:
@@ -305,6 +329,44 @@ def session_user(handler):
         AUTH_SESSIONS.pop(token, None)
         return None
     return {"id": row["id"], "name": row["full_name"], "nid": row["nid_number"]}
+
+def authenticate_admin(username, password):
+    conn = connect()
+    try:
+        row = conn.execute(
+            "SELECT id, username, full_name, password_salt, password_hash, is_active FROM admin_users WHERE username = ?",
+            (username,),
+        ).fetchone()
+    finally:
+        conn.close()
+    if not row or not row["is_active"]:
+        return None
+    candidate = password_digest(password, row["password_salt"])
+    if not hmac.compare_digest(candidate, row["password_hash"]):
+        return None
+    return {"id": row["id"], "username": row["username"], "name": row["full_name"]}
+
+
+def admin_session_user(handler):
+    header = handler.headers.get("Authorization", "")
+    token = header[7:].strip() if header.startswith("Bearer ") else ""
+    session = ADMIN_SESSIONS.get(token)
+    if not session:
+        return None
+    admin_id, expires = session
+    if expires < time.time():
+        ADMIN_SESSIONS.pop(token, None)
+        return None
+    conn = connect()
+    try:
+        row = conn.execute("SELECT id, username, full_name, is_active FROM admin_users WHERE id = ?", (admin_id,)).fetchone()
+    finally:
+        conn.close()
+    if not row or not row["is_active"]:
+        ADMIN_SESSIONS.pop(token, None)
+        return None
+    return {"id": row["id"], "username": row["username"], "name": row["full_name"]}
+
 
 def connect(read_only=False):
     if read_only:
@@ -343,6 +405,7 @@ def init_db():
             ensure_column(conn, "payments", "payer_nid", "TEXT NOT NULL DEFAULT ''")
             seed_if_empty(conn)
             seed_authorized_users(conn)
+            seed_admin_user(conn)
             seed_nid_registry(conn)
     finally:
         conn.close()
@@ -452,6 +515,8 @@ AUDIT_ACTIONS = {
     "/api/register": "Register",
     "/api/applications": "Application",
     "/api/payments": "Payment",
+    "/api/admin/login": "Admin login",
+    "/api/admin/logout": "Admin logout",
 }
 
 
@@ -467,13 +532,13 @@ def record_audit(user_label, ip, action, result, severity, detail=""):
         conn.close()
 
 
-def count_recent_login_failures(ip):
+def count_recent_login_failures(ip, action="Login"):
     conn = connect()
     try:
         return conn.execute(
-            "SELECT COUNT(*) FROM audit_log WHERE action = 'Login' AND result = 'Failed' AND ip_address = ? "
+            "SELECT COUNT(*) FROM audit_log WHERE action = ? AND result = 'Failed' AND ip_address = ? "
             "AND created_at >= datetime('now', 'localtime', '-10 minutes')",
-            (ip,),
+            (action, ip),
         ).fetchone()[0]
     finally:
         conn.close()
@@ -514,7 +579,7 @@ def admin_audit_rows():
 
 
 # ----------------------------------------------------------------------
-# ADMIN DASHBOARD DATA (administrator accounts only, see ADMIN_NIDS)
+# ADMIN DASHBOARD DATA (administrator sessions only)
 # ----------------------------------------------------------------------
 
 def change_application_status(app_code, status):
@@ -792,6 +857,51 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError(401, "Please log in.")
             return 200, {"user": {"name": user["name"], "nid": user["nid"]}}
 
+        # Administrator routes use their own login page, accounts and sessions.
+        if path == "/api/admin/login":
+            if method != "POST":
+                raise ApiError(405, "Method not allowed.")
+            data = self._read_json()
+            username = str(data.get("username", "")).strip()[:64]
+            password = str(data.get("password", ""))
+            if not username or not password or len(password) > 256:
+                self.audit_user = "Admin " + (username or "(blank)")
+                raise ApiError(400, "Enter the administrator username and password.")
+            admin = authenticate_admin(username, password)
+            if not admin:
+                self.audit_user = "Admin " + username
+                raise ApiError(401, "Invalid administrator username or password.")
+            token = secrets.token_urlsafe(32)
+            ADMIN_SESSIONS[token] = (admin["id"], time.time() + SESSION_TTL_SECONDS)
+            self.audit_user = admin["name"]
+            log("ADMIN LOGIN %s" % admin["username"])
+            return 200, {"token": token, "admin": {"name": admin["name"], "username": admin["username"]}}
+
+        if path == "/api/admin/logout":
+            if method != "POST":
+                raise ApiError(405, "Method not allowed.")
+            admin = admin_session_user(self)
+            if admin:
+                self.audit_user = admin["name"]
+            header = self.headers.get("Authorization", "")
+            ADMIN_SESSIONS.pop(header[7:].strip() if header.startswith("Bearer ") else "", None)
+            return 200, {"ok": True}
+
+        if path == "/api/admin/me":
+            if method != "GET":
+                raise ApiError(405, "Method not allowed.")
+            admin = admin_session_user(self)
+            if not admin:
+                raise ApiError(401, "Please log in as an administrator.")
+            return 200, {"admin": {"name": admin["name"], "username": admin["username"]}}
+
+        if path.startswith("/api/admin/"):
+            admin = admin_session_user(self)
+            if not admin:
+                raise ApiError(401, "Please log in as an administrator.")
+            self.audit_user = admin["name"]
+            return self._admin_api(method, path)
+
         # All portal data endpoints require a valid server-issued session.
         user = session_user(self)
         if not user:
@@ -808,11 +918,6 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError(400, "Unknown activity.")
             record_audit(user["name"], self.client_address[0], action, "Success", "Low", detail)
             return 201, {"ok": True}
-
-        if path.startswith("/api/admin/"):
-            if user["nid"] not in ADMIN_NIDS:
-                raise ApiError(403, "Only administrator accounts can open this dashboard.")
-            return self._admin_api(method, path)
 
         if path == "/api/applications":
             if method == "GET":
@@ -846,7 +951,7 @@ class Handler(BaseHTTPRequestHandler):
         raise ApiError(404, "Not found.")
 
     def _admin_api(self, method, path):
-        """Admin dashboard routes. The caller has already been checked against ADMIN_NIDS."""
+        """Admin dashboard routes. The caller has already been checked for an administrator session."""
         readers = {
             "/api/admin/summary": admin_summary,
             "/api/admin/audit": admin_audit_rows,
@@ -907,9 +1012,9 @@ class Handler(BaseHTTPRequestHandler):
             elif status == 429:
                 result, severity = "Blocked", "High"
             else:
-                result, severity = "Failed", ("Medium" if action == "Login" else "Low")
+                result, severity = "Failed", ("Medium" if action in ("Login", "Admin login") else "Low")
             ip = self.client_address[0]
-            if action == "Login" and result == "Failed" and count_recent_login_failures(ip) >= 4:
+            if action in ("Login", "Admin login") and result == "Failed" and count_recent_login_failures(ip, action) >= 4:
                 severity = "High"               # 5th failed login from this address in 10 minutes
             record_audit(self.audit_user or "Unknown user", ip, action, result, severity, self.audit_detail)
         except Exception:
@@ -921,6 +1026,8 @@ class Handler(BaseHTTPRequestHandler):
         path = unquote(path)
         if path in ("/", "/index.html"):
             relative = "index.html"
+        elif path in ("/admin", "/admin.html"):
+            relative = "admin.html"
         else:
             relative = path.lstrip("/")
             if relative.split("/")[0] not in PUBLIC_DIRS:
