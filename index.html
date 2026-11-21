@@ -557,7 +557,10 @@
     </div>
 
     <nav id="siteNav" aria-label="Main navigation">
-        <button type="button" class="nav-close" aria-label="Close menu">×</button>
+        <div class="nav-head">
+            <div class="nav-brand">Gov<span>Shield</span></div>
+            <button type="button" class="nav-close" aria-label="Close menu">×</button>
+        </div>
         <button onclick="showPage('home')">Home</button>
         <button onclick="showPage('services')">Services</button>
         <button onclick="showPage('security')">Security</button>
@@ -565,6 +568,7 @@
         <button id="navRegister" onclick="showPage('register')">Register</button>
         <button id="navDashboard" onclick="showPage('dashboard')" style="display:none">Dashboard</button>
         <button id="navLogout" onclick="logoutDevice()" style="display:none">Logout</button>
+        <p class="nav-foot">Demo prototype · Not an official government website</p>
     </nav>
 
     <button type="button" class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="siteNav">
