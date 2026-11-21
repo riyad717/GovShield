@@ -337,7 +337,7 @@ textarea:focus {
         display: flex !important;
         position: fixed;
         top: 0;
-        left: 0;
+        right: 0;
         bottom: 0;
         z-index: 1001;
         width: min(78vw, 300px);
@@ -349,8 +349,8 @@ textarea:focus {
         padding: 16px 16px 28px;
         overflow-y: auto;
         background: linear-gradient(180deg, var(--gs-navy), #072437);
-        box-shadow: 8px 0 30px rgba(2, 12, 27, 0.35);
-        transform: translateX(-105%);
+        box-shadow: -8px 0 30px rgba(2, 12, 27, 0.35);
+        transform: translateX(105%);
         visibility: hidden;
         transition: transform 0.28s ease, visibility 0.28s ease;
     }
