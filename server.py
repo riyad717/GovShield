@@ -998,6 +998,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def _admin_api(self, method, path):
         """Admin dashboard routes. The caller has already been checked for an administrator session."""
+        if path.startswith("/api/admin/mgmt/"):
+            # administrator management lives in its own module (admin_mgmt.py)
+            from admin_mgmt import handle as admin_mgmt_handle
+            return admin_mgmt_handle(sys.modules[__name__], self, method, path)
         readers = {
             "/api/admin/summary": admin_summary,
             "/api/admin/audit": admin_audit_rows,

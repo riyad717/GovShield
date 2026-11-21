@@ -1,0 +1,72 @@
+/* Administrator management: styles for the Management tab (additive, scoped to the admin console) */
+
+.adm-app .adm-mgmt { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+
+.adm-app .adm-mgmt-subtabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.adm-app .adm-mgmt-subtab {
+    border: 1px solid #d6dee8; background: #fff; color: #334155; border-radius: 999px;
+    padding: 7px 14px; font: inherit; font-size: 14px; cursor: pointer;
+}
+.adm-app .adm-mgmt-subtab.active { background: #0b3450; border-color: #0b3450; color: #fff; }
+.adm-app .adm-mgmt-view { display: none; }
+.adm-app .adm-mgmt-view.active { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); animation: admFade .3s ease; }
+.adm-app .adm-mgmt-card { min-width: 0; }
+.adm-app .adm-mgmt-card .adm-table-wrap { overflow-x: auto; max-width: 100%; }
+
+.adm-app .adm-mgmt-card {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px;
+}
+.adm-app .adm-mgmt-card h3 { margin: 0 0 4px; font-size: 16px; color: #0f172a; }
+.adm-app .adm-mgmt-card > p { margin: 0 0 12px; color: #64748b; font-size: 13.5px; }
+
+.adm-app .adm-mgmt-toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+.adm-app .adm-mgmt-toolbar .adm-input,
+.adm-app .adm-mgmt-toolbar .adm-select { min-width: 150px; }
+
+.adm-app .adm-mgmt-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+.adm-app .adm-mgmt-field { display: grid; gap: 5px; }
+.adm-app .adm-mgmt-field label { font-size: 12.5px; font-weight: 600; color: #475569; }
+.adm-app .adm-mgmt-field .adm-input,
+.adm-app .adm-mgmt-field .adm-select { width: 100%; box-sizing: border-box; }
+.adm-app .adm-mgmt-err { color: #b91c1c; font-size: 12.5px; min-height: 0; }
+.adm-app .adm-mgmt-err:empty { display: none; }
+.adm-app .adm-mgmt-msg { font-size: 13.5px; color: #0f172a; }
+.adm-app .adm-mgmt-msg.bad { color: #b91c1c; }
+
+.adm-app .adm-mgmt-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.adm-app .adm-mgmt-actions .adm-btn { padding: 5px 10px; font-size: 12.5px; }
+
+.adm-app .adm-mgmt-secret {
+    background: #f8fafc; border: 1px dashed #94a3b8; border-radius: 10px; padding: 12px 14px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 15px;
+    word-break: break-all; color: #0f172a; margin: 10px 0;
+}
+.adm-app .adm-mgmt-hint { font-size: 12.5px; color: #64748b; margin: 6px 0 0; }
+
+.adm-app .adm-mgmt-note-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.adm-app .adm-mgmt-note-list li {
+    border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px; background: #fbfdff;
+}
+.adm-app .adm-mgmt-note-list .meta { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+.adm-app .adm-mgmt-note-list .text { white-space: pre-wrap; font-size: 14px; color: #0f172a; }
+
+.adm-app .adm-mgmt-matrix td, .adm-app .adm-mgmt-matrix th { text-align: center; }
+.adm-app .adm-mgmt-matrix td:first-child, .adm-app .adm-mgmt-matrix th:first-child { text-align: left; }
+.adm-app .adm-mgmt-yes { color: #15803d; font-weight: 700; }
+.adm-app .adm-mgmt-no { color: #cbd5e1; }
+
+.adm-app .adm-mgmt-gate { max-width: 460px; margin: 30px auto; text-align: left; }
+.adm-app .adm-mgmt-gate .adm-mgmt-form { grid-template-columns: 1fr; }
+
+.adm-app #mgmtDialog .adm-modal-box { max-width: 720px; width: min(720px, 94vw); max-height: 88vh; overflow: auto; }
+.adm-app .adm-mgmt-dialog-title { margin: 0 0 8px; font-size: 18px; color: #0f172a; }
+.adm-app .adm-mgmt-sub { margin: 16px 0 8px; font-size: 14px; color: #0f172a; }
+.adm-app .adm-mgmt-form textarea.adm-input { resize: vertical; min-height: 70px; font-family: inherit; }
+.adm-app .adm-mgmt-stack { grid-template-columns: minmax(0, 1fr); }
+.adm-app .adm-mgmt-card td .adm-select { max-width: 170px; width: auto; }
+.adm-app .adm-mgmt-pager { display: flex; gap: 8px; align-items: center; justify-content: flex-end; margin-top: 10px; font-size: 13px; color: #64748b; }
+
+@media (max-width: 600px) {
+    .adm-app .adm-mgmt-toolbar .adm-input,
+    .adm-app .adm-mgmt-toolbar .adm-select { min-width: 0; width: 100%; }
+}
