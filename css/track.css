@@ -1,0 +1,10 @@
+.track-toolbar, .doc-toolbar { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; align-items: center; }
+.track-toolbar input, .doc-toolbar input { flex: 1; min-width: 220px; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+.track-toolbar select { padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; }
+.btn-sm { padding: 6px 14px; font-size: 13px; }
+.track-detail { display: none; margin-top: 24px; padding: 22px; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(15, 23, 42, .08); line-height: 1.8; }
+.track-detail h3 { margin-bottom: 12px; }
+.track-steps { display: flex; gap: 8px; margin: 12px 0 16px; flex-wrap: wrap; }
+.track-steps .step { padding: 6px 16px; border-radius: 20px; background: #e2e8f0; color: #475569; font-size: 13px; }
+.track-steps .step.done { background: #16a34a; color: #fff; }
+.track-steps .step.rejected { background: #dc2626; color: #fff; }
