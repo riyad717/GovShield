@@ -590,7 +590,7 @@
 
 <!-- ================= HOME ================= -->
 
-<section id="home" class="page">
+<section id="home" class="page active">
 
     <div class="hero">
 
@@ -736,7 +736,7 @@
 
 <!-- ================= LOGIN ================= -->
 
-<section id="login" class="page login-page active">
+<section id="login" class="page login-page">
 
     <div class="login-box">
 
@@ -1987,7 +1987,10 @@
 
     async function restoreSession() {
         const token = sessionStorage.getItem(AUTH_TOKEN_KEY);
-        if (!token) return;
+        if (!token) {
+            showPage("home");
+            return;
+        }
         try {
             const response = await fetch("/api/me", { headers: authHeaders() });
             if (!response.ok) throw new Error("Session expired");
