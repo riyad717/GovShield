@@ -541,10 +541,12 @@
     </style>
     <link rel="stylesheet" href="css/track.css">
     <link rel="stylesheet" href="css/documents.css">
+    <link rel="stylesheet" href="css/citizen.css">
 
 </head>
 
 <body>
+<div class="demo-ribbon" role="note">Demo site: all names, IDs and data are fictional. Do not enter real personal information.</div>
 
 <!-- ================= HEADER ================= -->
 
@@ -1854,6 +1856,9 @@
         if (currentGovShieldUser && (pageId === "login" || pageId === "register")) {
             pageId = "dashboard";
         }
+        document.querySelectorAll("nav button").forEach(button => {
+            button.classList.toggle("nav-active", button.getAttribute("onclick") === "showPage('" + pageId + "')");
+        });
         const loggedIn = Boolean(currentGovShieldUser);
         document.getElementById("navLogin").style.display = loggedIn ? "none" : "";
         document.getElementById("navRegister").style.display = loggedIn ? "none" : "";
@@ -1992,9 +1997,7 @@
             if (welcome) welcome.textContent = "Welcome, " + result.user.name;
             showPage("dashboard");
         } catch (e) {
-            sessionStorage.removeItem(AUTH_TOKEN_KEY);
-            currentGovShieldUser = null;
-            showPage("login");
+            showSessionEnded();
         }
     }
 

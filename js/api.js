@@ -21,7 +21,7 @@ async function apiRequest(path, options) {
         // session expired or server restarted: go back to login
         sessionStorage.removeItem(AUTH_TOKEN_KEY);
         currentGovShieldUser = null;
-        showPage("login");
+        showSessionEnded();
         throw new Error(data.error || "Please log in again.");
     }
     if (!response.ok) {
@@ -38,3 +38,15 @@ const api = {
     listPayments: function () { return apiRequest("/api/payments"); },
     createPayment: function (data) { return apiRequest("/api/payments", { method: "POST", body: data }); }
 };
+
+/* Shown on the login page when a saved login is no longer valid (for example after a server wipe). */
+function showSessionEnded() {
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    currentGovShieldUser = null;
+    showPage("login");
+    const message = document.getElementById("loginMessage");
+    if (message) {
+        message.style.color = "#b91c1c";
+        message.textContent = "Your session has ended. Please log in again.";
+    }
+}

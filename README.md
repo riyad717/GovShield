@@ -68,7 +68,7 @@ To add more test identities, insert rows into `nid_registry` (edit `EXTRA_REGIST
 - Registration is checked on the server (`/api/register`); a mismatch gives one generic error, no account is created, and attempts are limited to 10 per 10 minutes per IP.
 - The login API requires an exactly 10-digit numeric NID and checks the NID and password on the server. The browser cannot grant itself access.
 - Application and payment APIs require a server-issued session token.
-- Sessions are held in server memory for 8 hours and are cleared when the server restarts.
+- Login tokens are signed with a secret key and last 8 hours. Nothing is stored per session, so a server restart or a Render wake-up does not log anyone out. Set `GOVSHIELD_SECRET` on a real server to a private value.
 - Use `Logout` in the portal to end the current session.
 
 ## Important limitations
@@ -103,7 +103,7 @@ The administrator console is a separate page at `/admin.html`. The citizen porta
 - The administrator is set by the `GOVSHIELD_ADMIN_USER` variable (default `admin`) and the `GOVSHIELD_ADMIN_PASSWORD` variable. The password is applied on every start. The fallback `GovAdmin#2026` is for the local demo only, so set your own password on the server.
 - Charts use Chart.js from a CDN, so they need an internet connection. Without it the tables still work and the chart areas show a short note.
 - Admin data comes from `/api/admin/overview`, `/api/admin/applications`, `/api/admin/payments`, `/api/admin/citizens` and `/api/admin/audit`. The status change is `POST /api/admin/applications/<id>/status`. The citizen activity endpoint is `POST /api/activity`.
-- Login tokens for citizens and administrators are kept in the `sessions` table for 8 hours, so a server restart (for example Render waking up) does not log anyone out. A redeploy still resets the demo database and its sessions.
-- Administrator login is `POST /api/admin/login`, the session check is `GET /api/admin/me` and logout is `POST /api/admin/logout`. These use a separate session store from citizens.
+- Login tokens for citizens and administrators are signed and last 8 hours. Logout is recorded in the `revoked_sessions` table. On Render's free plan the local database (accounts, applications, payments) is still reset on a restart, redeploy or spin-down, but login tokens keep working as long as the demo account exists.
+- Administrator login is `POST /api/admin/login`, the session check is `GET /api/admin/me` and logout is `POST /api/admin/logout`. Citizen and administrator tokens are signed with different kinds, so one can never open the other's pages.
 - Frontend code is in `admin.html`, `js/admin.js` and `css/admin.css`. Backend code is in `server.py`: the `admin_users` and `audit_log` tables, `record_audit`, the `admin_*` helpers and `_admin_api`.
 - Older databases are upgraded on start. The `detail` column is added to `audit_log`, and the `payer_nid` column to `payments`. Payments made before this upgrade have no payer link, so they count toward totals but not toward a citizen's record.

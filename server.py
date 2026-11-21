@@ -26,6 +26,7 @@ The data is stored in the file  govshield.db  (created next to this file).
 """
 
 import argparse
+import base64
 import json
 import hashlib
 import hmac
@@ -47,7 +48,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "govshield.db")
 MAX_BODY = 10 * 1024          # requests bigger than 10 KB are refused
 SESSION_TTL_SECONDS = 8 * 60 * 60
-# Login tokens live in the sessions table, so a server restart (Render sleeps and wakes) does not log anyone out.
+# Login tokens are signed with this key and need no stored session, so they survive restarts and Render wipes.
+# Set GOVSHIELD_SECRET to a private value on a real server. The fallback is for the demo only.
+SESSION_SECRET = os.environ.get("GOVSHIELD_SECRET", "govshield-demo-only-signing-key").encode("utf-8")
 DEMO_PASSWORD_PREFIX = "GovDemo#"
 # Administrators have their own accounts (table admin_users) and their own login page.
 ADMIN_USERNAME = os.environ.get("GOVSHIELD_ADMIN_USER", "admin").strip() or "admin"
@@ -108,11 +111,9 @@ CREATE TABLE IF NOT EXISTS payments (
     created_at   TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
 );
 
--- Login tokens for citizens (kind = citizen) and administrators (kind = admin).
-CREATE TABLE IF NOT EXISTS sessions (
+-- Logged-out tokens only. Login tokens are signed (kind = citizen or admin), so nothing else is stored for them.
+CREATE TABLE IF NOT EXISTS revoked_sessions (
     token      TEXT PRIMARY KEY,
-    kind       TEXT NOT NULL CHECK (kind IN ('citizen', 'admin')),
-    account_id INTEGER NOT NULL,
     expires_at REAL NOT NULL
 );
 
@@ -317,51 +318,59 @@ def authenticate_user(nid, password):
     return {"id": row["id"], "name": row["full_name"], "nid": row["nid_number"]}
 
 
-def create_session(kind, account_id):
-    """Stores a new login token in the database and returns it."""
-    token = secrets.token_urlsafe(32)
-    conn = connect()
+def verify_token(token):
+    """The payload of a genuine, signed token, or None. Does not check kind, expiry or logout."""
+    if not token or "." not in token or not token.isascii():
+        return None
+    body, signature = token.rsplit(".", 1)
+    expected = hmac.new(SESSION_SECRET, body.encode("ascii"), hashlib.sha256).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        return None
     try:
-        with conn:
-            conn.execute("DELETE FROM sessions WHERE expires_at < ?", (time.time(),))
-            conn.execute(
-                "INSERT INTO sessions (token, kind, account_id, expires_at) VALUES (?, ?, ?, ?)",
-                (token, kind, account_id, time.time() + SESSION_TTL_SECONDS),
-            )
-    finally:
-        conn.close()
-    return token
+        payload = json.loads(base64.urlsafe_b64decode((body + "=" * (-len(body) % 4)).encode("ascii")).decode("utf-8"))
+    except ValueError:
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def create_session(kind, account_id):
+    """Returns a signed login token for this account. Nothing is written to the database."""
+    payload = {"k": kind, "a": account_id, "e": int(time.time() + SESSION_TTL_SECONDS)}
+    body = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode("utf-8")).decode("ascii").rstrip("=")
+    signature = hmac.new(SESSION_SECRET, body.encode("ascii"), hashlib.sha256).hexdigest()
+    return body + "." + signature
 
 
 def end_session(token):
-    if not token:
+    """Logout: the token is remembered as revoked until it would have expired anyway."""
+    payload = verify_token(token)
+    if not payload:
         return
     conn = connect()
     try:
         with conn:
-            conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+            conn.execute("DELETE FROM revoked_sessions WHERE expires_at < ?", (time.time(),))
+            conn.execute("INSERT OR REPLACE INTO revoked_sessions (token, expires_at) VALUES (?, ?)",
+                         (token, float(payload.get("e", 0))))
     finally:
         conn.close()
 
 
 def session_account_id(kind, handler):
-    """The account id behind the Bearer token, if the token is valid, unexpired and of this kind."""
+    """The account id behind the Bearer token, if the token is genuine, unexpired, not logged out and of this kind."""
     header = handler.headers.get("Authorization", "")
     token = header[7:].strip() if header.startswith("Bearer ") else ""
-    if not token:
+    payload = verify_token(token)
+    if not payload or payload.get("k") != kind or payload.get("e", 0) < time.time():
         return None
     conn = connect()
     try:
-        row = conn.execute(
-            "SELECT account_id, expires_at FROM sessions WHERE token = ? AND kind = ?", (token, kind)
-        ).fetchone()
-        if row and row["expires_at"] < time.time():
-            with conn:
-                conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
-            return None
-        return row["account_id"] if row else None
+        revoked = conn.execute("SELECT 1 FROM revoked_sessions WHERE token = ?", (token,)).fetchone()
     finally:
         conn.close()
+    if revoked:
+        return None
+    return payload.get("a")
 
 
 def session_user(handler):
