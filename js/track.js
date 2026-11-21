@@ -6,6 +6,7 @@ async function loadTrack() {
     const body = document.getElementById("trkBody");
     try {
         trackApplications = await api.listApplications();
+        apiRequest("/api/activity", { method: "POST", body: { action: "Track", detail: "Viewed application status" } }).catch(function () {});
         renderTrack();
     } catch (error) {
         body.innerHTML = emptyRow(5, error.message);

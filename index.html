@@ -586,6 +586,7 @@
     <link rel="stylesheet" href="css/track.css">
     <link rel="stylesheet" href="css/documents.css">
 
+    <link rel="stylesheet" href="css/admin.css">
 </head>
 
 <body>
@@ -605,6 +606,7 @@
         <button onclick="showPage('admin')">Admin</button>
         <button onclick="showPage('login')">Login</button>
         <button onclick="showPage('register')">Register</button>
+        <button id="navLogout" onclick="logoutDevice()" style="display:none">Logout</button>
     </nav>
 
 </header>
@@ -1643,7 +1645,7 @@
 
                     <button
                         class="btn btn-danger"
-                        onclick="logoutDevice(this)">
+                        onclick="terminateDeviceRow(this)">
                         Logout
                     </button>
 
@@ -1710,277 +1712,281 @@
 
 <section id="admin" class="page">
 
-    <div class="container">
+    <div class="adm">
 
-        <div class="dashboard-header">
+        <aside class="adm-side">
 
-            <div>
-
-                <h1>Security Admin Dashboard</h1>
-
-                <p>Real-time security monitoring</p>
-
+            <div class="adm-brand">
+                Admin Console
+                <strong>GovShield</strong>
             </div>
 
-            <button
-                class="btn btn-danger"
-                onclick="showAlert()">
+            <button class="adm-tab active" data-tab="overview">Overview</button>
+            <button class="adm-tab" data-tab="applications">Applications <span class="adm-count" id="cnt-applications">0</span></button>
+            <button class="adm-tab" data-tab="payments">Payments <span class="adm-count" id="cnt-payments">0</span></button>
+            <button class="adm-tab" data-tab="citizens">Citizens <span class="adm-count" id="cnt-citizens">0</span></button>
+            <button class="adm-tab" data-tab="activity">Activity log <span class="adm-count" id="cnt-activity">0</span></button>
+            <button class="adm-tab" data-tab="security">Security <span class="adm-count" id="cnt-security">0</span></button>
 
-                Test Security Alert
-
-            </button>
-
-        </div>
-
-
-        <div class="admin-grid">
-
-            <div class="admin-card">
-
-                <h3>Total Logins</h3>
-
-                <div class="value">1,248</div>
-
+            <div class="adm-side-foot">
+                <span class="adm-live-dot"></span>
+                <span id="admLive">Connecting...</span>
             </div>
 
+        </aside>
 
-            <div class="admin-card">
+        <main class="adm-main">
 
-                <h3>Failed Logins</h3>
-
-                <div class="value">87</div>
-
+            <div class="adm-top">
+                <div>
+                    <h1>Admin Dashboard</h1>
+                    <p>Every citizen action, live from the server</p>
+                </div>
+                <div class="adm-actions">
+                    <button class="adm-btn" id="admRefresh">Refresh</button>
+                    <button class="adm-btn" id="admExport">Export CSV</button>
+                    <button class="btn btn-danger" onclick="showAlert()">Test Security Alert</button>
+                </div>
             </div>
 
-
-            <div class="admin-card">
-
-                <h3>Security Alerts</h3>
-
-                <div class="value">12</div>
-
+            <div class="adm-denied" id="admDenied" hidden>
+                <strong>Restricted.</strong> This dashboard is only for administrator accounts.
             </div>
 
-        </div>
-
-
-        <div class="filter-box">
-
-            <input
-                type="text"
-                placeholder="Search User"
-                id="userFilter"
-            >
-
-            <input
-                type="text"
-                placeholder="Search IP"
-            >
-
-            <select>
-
-                <option>All Actions</option>
-                <option>Login</option>
-                <option>Logout</option>
-                <option>Payment</option>
-                <option>Application</option>
-
-            </select>
-
-            <select>
-
-                <option>All Results</option>
-                <option>Success</option>
-                <option>Failed</option>
-                <option>Blocked</option>
-
-            </select>
-
-        </div>
-
-
-        <div class="table-container">
-
-            <h2>Live Audit Logs</h2>
-
-            <br>
-
-            <table id="auditTable">
-
-                <tr>
-
-                    <th>User</th>
-                    <th>IP Address</th>
-                    <th>Action</th>
-                    <th>Result</th>
-                    <th>Severity</th>
-                    <th>Time</th>
-
-                </tr>
-
-
-                <tr>
-
-                    <td>Mithila</td>
-
-                    <td>192.168.1.10</td>
-
-                    <td>Login</td>
-
-                    <td>
-                        <span class="badge badge-success">
-                            Success
-                        </span>
-                    </td>
-
-                    <td>Low</td>
-
-                    <td>10:42 PM</td>
-
-                </tr>
-
-
-                <tr>
-
-                    <td>Unknown User</td>
-
-                    <td>45.22.18.5</td>
-
-                    <td>Login</td>
-
-                    <td>
-                        <span class="badge badge-danger">
-                            Blocked
-                        </span>
-                    </td>
-
-                    <td>
-                        <span class="badge badge-danger">
-                            High
-                        </span>
-                    </td>
-
-                    <td>10:40 PM</td>
-
-                </tr>
-
-
-                <tr>
-
-                    <td>Shadin</td>
-
-                    <td>192.168.1.20</td>
-
-                    <td>Payment</td>
-
-                    <td>
-                        <span class="badge badge-success">
-                            Success
-                        </span>
-                    </td>
-
-                    <td>Low</td>
-
-                    <td>10:35 PM</td>
-
-                </tr>
-
-
-                <tr>
-
-                    <td>Asad</td>
-
-                    <td>192.168.1.30</td>
-
-                    <td>Login</td>
-
-                    <td>
-                        <span class="badge badge-warning">
-                            Failed
-                        </span>
-                    </td>
-
-                    <td>Medium</td>
-
-                    <td>10:31 PM</td>
-
-                </tr>
-
-            </table>
-
-        </div>
-
-
-        <br>
-
-
-        <div class="table-container">
-
-            <h2>Security Alerts</h2>
-
-            <br>
-
-            <table>
-
-                <tr>
-
-                    <th>Alert</th>
-                    <th>Type</th>
-                    <th>Severity</th>
-                    <th>Status</th>
-
-                </tr>
-
-
-                <tr>
-
-                    <td>Multiple failed login attempts</td>
-
-                    <td>Brute Force</td>
-
-                    <td>
-                        <span class="badge badge-danger">
-                            High
-                        </span>
-                    </td>
-
-                    <td>
-                        <span class="badge badge-success">
-                            Blocked
-                        </span>
-                    </td>
-
-                </tr>
-
-
-                <tr>
-
-                    <td>New device detected</td>
-
-                    <td>Unusual Login</td>
-
-                    <td>
-                        <span class="badge badge-warning">
-                            Medium
-                        </span>
-                    </td>
-
-                    <td>
-                        <span class="badge badge-warning">
-                            Investigating
-                        </span>
-                    </td>
-
-                </tr>
-
-            </table>
-
-        </div>
+            <!-- ============ OVERVIEW ============ -->
+            <section class="adm-pane active" data-pane="overview">
+
+                <div class="adm-kpis">
+                    <div class="adm-kpi" style="--c:#0284c7">
+                        <div class="adm-kpi-label">Citizens</div>
+                        <div class="adm-kpi-value" id="kpi-citizens">-</div>
+                        <div class="adm-kpi-sub" id="kpi-citizens-sub"></div>
+                    </div>
+                    <div class="adm-kpi" style="--c:#16a34a">
+                        <div class="adm-kpi-label">Applications</div>
+                        <div class="adm-kpi-value" id="kpi-applications">-</div>
+                        <div class="adm-kpi-sub" id="kpi-applications-sub"></div>
+                    </div>
+                    <div class="adm-kpi" style="--c:#7c3aed">
+                        <div class="adm-kpi-label">Payments</div>
+                        <div class="adm-kpi-value" id="kpi-payments">-</div>
+                        <div class="adm-kpi-sub" id="kpi-payments-sub"></div>
+                    </div>
+                    <div class="adm-kpi" style="--c:#0ea5e9">
+                        <div class="adm-kpi-label">Logins today</div>
+                        <div class="adm-kpi-value" id="kpi-logins">-</div>
+                        <div class="adm-kpi-sub" id="kpi-logins-sub"></div>
+                    </div>
+                    <div class="adm-kpi" style="--c:#f59e0b">
+                        <div class="adm-kpi-label">Failed logins today</div>
+                        <div class="adm-kpi-value" id="kpi-failed">-</div>
+                        <div class="adm-kpi-sub" id="kpi-failed-sub"></div>
+                    </div>
+                    <div class="adm-kpi" style="--c:#dc2626">
+                        <div class="adm-kpi-label">Security alerts</div>
+                        <div class="adm-kpi-value" id="kpi-alerts">-</div>
+                        <div class="adm-kpi-sub" id="kpi-alerts-sub"></div>
+                    </div>
+                </div>
+
+                <div class="adm-grid2">
+                    <div class="adm-card">
+                        <h3>Activity, last 14 days</h3>
+                        <div class="adm-chart"><canvas id="ch-trend"></canvas></div>
+                    </div>
+                    <div class="adm-card">
+                        <h3>Application status</h3>
+                        <div class="adm-chart"><canvas id="ch-status"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="adm-grid2 even">
+                    <div class="adm-card">
+                        <h3>Applications by service</h3>
+                        <div class="adm-chart"><canvas id="ch-service"></canvas></div>
+                    </div>
+                    <div class="adm-card">
+                        <h3>Payments by method (BDT)</h3>
+                        <div class="adm-chart"><canvas id="ch-method"></canvas></div>
+                    </div>
+                </div>
+
+                <div class="adm-table-wrap">
+                    <div class="adm-foot"><strong style="color:#0f172a">Latest activity</strong></div>
+                    <div class="adm-table-scroll" style="max-height:none">
+                        <table class="adm-table">
+                            <thead>
+                                <tr><th>Time</th><th>User</th><th>Action</th><th>Detail</th><th>Result</th></tr>
+                            </thead>
+                            <tbody id="ov-recent"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- ============ APPLICATIONS ============ -->
+            <section class="adm-pane" data-pane="applications">
+
+                <div class="adm-toolbar">
+                    <input class="adm-input" id="app-search" type="search" placeholder="Search by application no., name, service or address">
+                    <select class="adm-select" id="app-status">
+                        <option value="">All statuses</option>
+                        <option>Pending</option>
+                        <option>Processing</option>
+                        <option>Approved</option>
+                        <option>Rejected</option>
+                    </select>
+                    <select class="adm-select" id="app-service">
+                        <option value="">All services</option>
+                    </select>
+                </div>
+
+                <div class="adm-table-wrap">
+                    <div class="adm-table-scroll">
+                        <table class="adm-table">
+                            <thead>
+                                <tr><th>Application</th><th>Applicant</th><th>NID</th><th>Service</th><th>Submitted</th><th>Status</th><th></th></tr>
+                            </thead>
+                            <tbody id="app-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="adm-foot"><span id="app-pager"></span></div>
+                </div>
+
+            </section>
+
+            <!-- ============ PAYMENTS ============ -->
+            <section class="adm-pane" data-pane="payments">
+
+                <div class="adm-toolbar">
+                    <input class="adm-input" id="pay-search" type="search" placeholder="Search by transaction, reference or bill type">
+                    <select class="adm-select" id="pay-method">
+                        <option value="">All methods</option>
+                        <option>bKash</option>
+                        <option>Nagad</option>
+                        <option>Card</option>
+                    </select>
+                </div>
+
+                <div class="adm-table-wrap">
+                    <div class="adm-table-scroll">
+                        <table class="adm-table">
+                            <thead>
+                                <tr><th>Transaction</th><th>Type</th><th>Reference</th><th>Method</th><th class="num">Amount</th><th>Status</th><th>Date</th></tr>
+                            </thead>
+                            <tbody id="pay-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="adm-foot"><span class="adm-totals" id="pay-totals"></span><span id="pay-pager"></span></div>
+                </div>
+
+            </section>
+
+            <!-- ============ CITIZENS ============ -->
+            <section class="adm-pane" data-pane="citizens">
+
+                <div class="adm-toolbar">
+                    <input class="adm-input" id="cit-search" type="search" placeholder="Search citizen by name">
+                    <span class="adm-note" style="padding:0 6px;text-align:left" id="cit-count"></span>
+                </div>
+
+                <div class="adm-table-wrap">
+                    <div class="adm-table-scroll">
+                        <table class="adm-table">
+                            <thead>
+                                <tr><th>Citizen</th><th>NID</th><th>Phone</th><th>Account</th><th>Registered</th><th class="num">Applications</th><th class="num">Payments</th><th class="num">Total paid</th><th>Last login</th><th></th></tr>
+                            </thead>
+                            <tbody id="cit-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- ============ ACTIVITY LOG ============ -->
+            <section class="adm-pane" data-pane="activity">
+
+                <div class="adm-toolbar">
+                    <input class="adm-input" id="act-user" type="search" placeholder="Filter by citizen or user name">
+                    <select class="adm-select" id="act-action">
+                        <option value="">All actions</option>
+                        <option>Register</option>
+                        <option>Login</option>
+                        <option>Logout</option>
+                        <option>Track</option>
+                        <option>Application</option>
+                        <option>Payment</option>
+                        <option>Document</option>
+                        <option>Status</option>
+                    </select>
+                    <select class="adm-select" id="act-result">
+                        <option value="">All results</option>
+                        <option>Success</option>
+                        <option>Failed</option>
+                        <option>Blocked</option>
+                    </select>
+                </div>
+
+                <div class="adm-table-wrap">
+                    <div class="adm-table-scroll">
+                        <table class="adm-table">
+                            <thead>
+                                <tr><th>Time</th><th>User</th><th>IP address</th><th>Action</th><th>Detail</th><th>Result</th><th>Severity</th></tr>
+                            </thead>
+                            <tbody id="act-body"></tbody>
+                        </table>
+                    </div>
+                    <div class="adm-foot"><span id="act-pager"></span></div>
+                </div>
+
+            </section>
+
+            <!-- ============ SECURITY ============ -->
+            <section class="adm-pane" data-pane="security">
+
+                <div class="adm-grid2 even">
+                    <div class="adm-card">
+                        <h3>Failed logins by address <small style="font-weight:400;color:#64748b">latest events</small></h3>
+                        <div class="adm-table-scroll" style="max-height:380px">
+                            <table class="adm-table">
+                                <thead>
+                                    <tr><th>IP address</th><th class="num">Failed</th><th>Last attempt</th><th>Risk</th></tr>
+                                </thead>
+                                <tbody id="sec-ips"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="adm-card">
+                        <h3>Security alerts</h3>
+                        <div class="adm-table-scroll" style="max-height:380px">
+                            <table class="adm-table">
+                                <thead>
+                                    <tr><th>Alert</th><th>Severity</th><th>Status</th></tr>
+                                </thead>
+                                <tbody id="sec-alerts"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+        </main>
 
     </div>
 
-</section>
+    <!-- application details -->
+    <div class="adm-modal" id="app-modal" hidden>
+        <div class="adm-modal-box" role="dialog" aria-modal="true" aria-labelledby="app-modal-title">
+            <button class="adm-x" id="app-modal-close" aria-label="Close">&times;</button>
+            <div id="app-modal-body"></div>
+        </div>
+    </div>
 
+    <div class="adm-toast" id="adm-toast" hidden></div>
+
+</section>
 
 <!-- ================= AUDITOR ================= -->
 
@@ -2169,6 +2175,7 @@
         if (!publicPages.includes(pageId) && !currentGovShieldUser) {
             pageId = "login";
         }
+        document.getElementById("navLogout").style.display = currentGovShieldUser ? "" : "none";
         document.querySelectorAll(".page").forEach(page => page.classList.remove("active"));
         const selectedPage = document.getElementById(pageId);
         if (selectedPage) {
@@ -2393,7 +2400,7 @@
 
     /* LOGOUT DEVICE */
 
-    function logoutDevice(button) {
+    function terminateDeviceRow(button) {
 
         button.parentElement.innerHTML =
             "<strong>Session terminated successfully.</strong>";
@@ -2411,6 +2418,7 @@
 <script src="js/documents.js"></script>
 <script src="js/apply.js"></script>
 <script src="js/pay.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script src="js/admin.js"></script>
 
 </body>

@@ -81,6 +81,7 @@ function downloadDocument(reference) {
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
 
     addDownloadCount();
+    apiRequest("/api/activity", { method: "POST", body: { action: "Document", detail: d.reference + " - " + d.name } }).catch(function () {});
     renderDocuments();
 }
 

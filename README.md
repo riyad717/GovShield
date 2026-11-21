@@ -88,12 +88,19 @@ These pages now work and are served from `js/` and `css/`:
 
 ## Security Admin Dashboard
 
-Open **Admin** from the top menu after logging in. The dashboard reads live data from the server:
+Open **Admin** from the top menu after logging in. The console reads live data from the server:
 
-- **Total Logins / Failed Logins / Security Alerts** cards and the **Live Audit Logs** table are filled from the `audit_log` table in `govshield.db`.
-- The search boxes and dropdowns above the table filter the rows.
-- The page refreshes every 10 seconds while it is open.
-- The audit log starts empty. It fills as people log in, log out, register, apply and pay.
-- Logins are checked against the same rules as before. A 5th failed login from the same address within 10 minutes is marked High severity.
-- Admin data is served by `/api/admin/summary` and `/api/admin/audit`. Both need a logged-in session. The demo has no admin roles, so any logged-in demo account can open the dashboard.
-- Frontend code is in `js/admin.js`. Backend changes are the `audit_log` table, the `record_audit` / `admin_*` helpers and the `_audit` method in `server.py`.
+- **Overview**: six KPI tiles (citizens, applications, payments, logins today, failed logins today, security alerts), four charts (14-day activity, application status, applications by service, payments by method) and the latest activity.
+- **Applications**: search, status and service filters, paging, and a details window with the application's timeline and its activity history. An administrator can change the status there.
+- **Payments**: search, method filter, paging and totals in BDT.
+- **Citizens**: masked NID and phone, application and payment counts, total paid and last login. The **Activity** button opens the activity log for that citizen.
+- **Activity log**: every recorded action, with filters for citizen, action and result. Each row shows the IP address, detail and severity.
+- **Security**: failed logins by address and the High-severity alerts.
+- **Export CSV** on each tab downloads the full list for that tab.
+- The page refreshes every 15 seconds while it is open and redraws only when the data changes.
+- Recorded actions: Register, Login, Logout, Track (viewing the application list), Application, Payment, Document (download) and Status (administrator change).
+- Only administrator accounts can open the console. The accounts are listed in the `GOVSHIELD_ADMIN_NIDS` environment variable (comma-separated NIDs). The default is `1000000001`. Other accounts see a "Restricted" notice.
+- Charts use Chart.js from a CDN, so they need an internet connection. Without it the tables still work and the chart areas show a short note.
+- Admin data comes from `/api/admin/overview`, `/api/admin/applications`, `/api/admin/payments`, `/api/admin/citizens` and `/api/admin/audit`. The status change is `POST /api/admin/applications/<id>/status`. The citizen activity endpoint is `POST /api/activity`.
+- Frontend code is in `js/admin.js` and `css/admin.css`. Backend code is in `server.py`: the `audit_log` table, `record_audit`, the `admin_*` helpers and `_admin_api`.
+- Older databases are upgraded on start. The `detail` column is added to `audit_log`, and the `payer_nid` column to `payments`. Payments made before this upgrade have no payer link, so they count toward totals but not toward a citizen's record.

@@ -37,7 +37,7 @@ import sqlite3
 import sys
 import threading
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -49,6 +49,11 @@ MAX_BODY = 10 * 1024          # requests bigger than 10 KB are refused
 SESSION_TTL_SECONDS = 8 * 60 * 60
 AUTH_SESSIONS = {}  # in-memory demo sessions; all sessions expire when the server restarts
 DEMO_PASSWORD_PREFIX = "GovDemo#"
+# Only these NIDs can open the admin dashboard. Change with the GOVSHIELD_ADMIN_NIDS
+# environment variable (comma-separated), e.g. "1000000001,1000000002".
+ADMIN_NIDS = {n.strip() for n in os.environ.get("GOVSHIELD_ADMIN_NIDS", "1000000001").split(",") if n.strip()}
+APP_STATUSES = ("Pending", "Processing", "Approved", "Rejected")
+ACTIVITY_ACTIONS = ("Track", "Document")     # citizen actions the portal reports itself
 
 SERVICES = ["Birth Certificate", "Citizenship Certificate", "Trade Licence", "Other Certificate"]
 PAYMENT_TYPES = ["Tax", "Electricity Bill", "Water Bill", "Gas Bill"]
@@ -322,11 +327,20 @@ def seed_if_empty(conn):
         conn.execute("UPDATE applications SET app_code = 'APP-' || (1000 + id) WHERE app_code IS NULL")
 
 
+def ensure_column(conn, table, column, definition):
+    """Adds a column to a table created by an older version (CREATE TABLE IF NOT EXISTS does not)."""
+    names = [r[1] for r in conn.execute("PRAGMA table_info(%s)" % table).fetchall()]
+    if column not in names:
+        conn.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, column, definition))
+
+
 def init_db():
     conn = connect()
     try:
         with conn:
             conn.executescript(SCHEMA)
+            ensure_column(conn, "audit_log", "detail", "TEXT NOT NULL DEFAULT ''")
+            ensure_column(conn, "payments", "payer_nid", "TEXT NOT NULL DEFAULT ''")
             seed_if_empty(conn)
             seed_authorized_users(conn)
             seed_nid_registry(conn)
@@ -416,8 +430,8 @@ def create_payment(clean):
     try:
         with conn:
             cur = conn.execute(
-                "INSERT INTO payments (payment_type, reference_no, amount, method) VALUES (?, ?, ?, ?)",
-                (clean["type"], clean["reference"], clean["amount"], clean["method"]),
+                "INSERT INTO payments (payment_type, reference_no, amount, method, payer_nid) VALUES (?, ?, ?, ?, ?)",
+                (clean["type"], clean["reference"], clean["amount"], clean["method"], clean.get("payer_nid", "")),
             )
             new_id = cur.lastrowid
             conn.execute("UPDATE payments SET txn_code = 'TXN-' || (10000000 + id) WHERE id = ?", (new_id,))
@@ -441,13 +455,13 @@ AUDIT_ACTIONS = {
 }
 
 
-def record_audit(user_label, ip, action, result, severity):
+def record_audit(user_label, ip, action, result, severity, detail=""):
     conn = connect()
     try:
         with conn:
             conn.execute(
-                "INSERT INTO audit_log (user_label, ip_address, action, result, severity) VALUES (?, ?, ?, ?, ?)",
-                (user_label, ip, action, result, severity),
+                "INSERT INTO audit_log (user_label, ip_address, action, result, severity, detail) VALUES (?, ?, ?, ?, ?, ?)",
+                (user_label, ip, action, result, severity, detail),
             )
     finally:
         conn.close()
@@ -491,6 +505,100 @@ def admin_audit_rows():
                 "result": r["result"],
                 "severity": r["severity"],
                 "time": r["created_at"],
+                "detail": r["detail"],
+            }
+            for r in rows
+        ]
+    finally:
+        conn.close()
+
+
+# ----------------------------------------------------------------------
+# ADMIN DASHBOARD DATA (administrator accounts only, see ADMIN_NIDS)
+# ----------------------------------------------------------------------
+
+def change_application_status(app_code, status):
+    conn = connect()
+    try:
+        with conn:
+            row = conn.execute("SELECT status FROM applications WHERE app_code = ?", (app_code,)).fetchone()
+            if not row:
+                raise ApiError(404, "Application not found.")
+            conn.execute("UPDATE applications SET status = ? WHERE app_code = ?", (status, app_code))
+            return row["status"]
+    finally:
+        conn.close()
+
+
+def admin_overview():
+    conn = connect()
+    try:
+        today = datetime.now().strftime("%Y-%m-%d")
+        days = [(datetime.now().date() - timedelta(days=i)).isoformat() for i in range(13, -1, -1)]
+        since = days[0]
+
+        def one(sql, *params):
+            return conn.execute(sql, params).fetchone()[0]
+
+        def pairs(sql, *params):
+            return {r[0]: r[1] for r in conn.execute(sql, params).fetchall()}
+
+        def per_day(table, extra=""):
+            counts = pairs("SELECT substr(created_at, 1, 10), COUNT(*) FROM %s "
+                           "WHERE substr(created_at, 1, 10) >= ? %s GROUP BY 1" % (table, extra), since)
+            return [counts.get(d, 0) for d in days]
+
+        return {
+            "citizens": one("SELECT COUNT(*) FROM authorized_users WHERE is_active = 1"),
+            "applications": one("SELECT COUNT(*) FROM applications"),
+            "applicationsToday": one("SELECT COUNT(*) FROM applications WHERE substr(created_at, 1, 10) = ?", today),
+            "pending": one("SELECT COUNT(*) FROM applications WHERE status IN ('Pending', 'Processing')"),
+            "applicationsByStatus": pairs("SELECT status, COUNT(*) FROM applications GROUP BY status"),
+            "applicationsByService": pairs("SELECT service, COUNT(*) FROM applications GROUP BY service"),
+            "payments": one("SELECT COUNT(*) FROM payments"),
+            "paymentsTotal": one("SELECT COALESCE(SUM(amount), 0) FROM payments"),
+            "paymentsByMethod": pairs("SELECT method, COALESCE(SUM(amount), 0) FROM payments GROUP BY method"),
+            "loginsToday": one("SELECT COUNT(*) FROM audit_log WHERE action = 'Login' AND result = 'Success' "
+                               "AND substr(created_at, 1, 10) = ?", today),
+            "failedToday": one("SELECT COUNT(*) FROM audit_log WHERE action = 'Login' AND result = 'Failed' "
+                               "AND substr(created_at, 1, 10) = ?", today),
+            "alerts": one("SELECT COUNT(*) FROM audit_log WHERE severity = 'High'"),
+            "events": one("SELECT COUNT(*) FROM audit_log"),
+            "series": {
+                "days": days,
+                "applications": per_day("applications"),
+                "payments": per_day("payments"),
+                "logins": per_day("audit_log", "AND action = 'Login' AND result = 'Success'"),
+            },
+        }
+    finally:
+        conn.close()
+
+
+def admin_citizens():
+    conn = connect()
+    try:
+        rows = conn.execute("""
+            SELECT u.full_name, u.nid_number, u.phone_number, u.is_active, u.created_at,
+                   (SELECT COUNT(*) FROM applications a
+                     WHERE a.national_id = u.nid_number OR a.applicant_name = u.full_name) AS app_count,
+                   (SELECT COUNT(*) FROM payments p WHERE p.payer_nid = u.nid_number) AS pay_count,
+                   (SELECT COALESCE(SUM(p.amount), 0) FROM payments p WHERE p.payer_nid = u.nid_number) AS pay_sum,
+                   (SELECT MAX(l.created_at) FROM audit_log l
+                     WHERE l.user_label = u.full_name AND l.action = 'Login' AND l.result = 'Success') AS last_login
+            FROM authorized_users u ORDER BY u.id
+        """).fetchall()
+        return [
+            {
+                "name": r["full_name"],
+                "nid": mask_nid(r["nid_number"]),
+                "phone": mask_nid(r["phone_number"]),
+                "active": bool(r["is_active"]),
+                "registered": r["created_at"],
+                "applications": r["app_count"],
+                "payments": r["pay_count"],
+                "paid": "%.2f" % r["pay_sum"],
+                "lastLogin": r["last_login"] or "",
             }
             for r in rows
         ]
@@ -689,15 +797,22 @@ class Handler(BaseHTTPRequestHandler):
         if not user:
             raise ApiError(401, "Please log in to access the portal.")
 
-        if path == "/api/admin/summary":
-            if method != "GET":
+        if path == "/api/activity":
+            # citizen actions the browser reports itself (track page, document download)
+            if method != "POST":
                 raise ApiError(405, "Method not allowed.")
-            return 200, admin_summary()
+            data = self._read_json()
+            action = str(data.get("action", "")).strip()
+            detail = " ".join(str(data.get("detail", "")).split())[:120]
+            if action not in ACTIVITY_ACTIONS:
+                raise ApiError(400, "Unknown activity.")
+            record_audit(user["name"], self.client_address[0], action, "Success", "Low", detail)
+            return 201, {"ok": True}
 
-        if path == "/api/admin/audit":
-            if method != "GET":
-                raise ApiError(405, "Method not allowed.")
-            return 200, admin_audit_rows()
+        if path.startswith("/api/admin/"):
+            if user["nid"] not in ADMIN_NIDS:
+                raise ApiError(403, "Only administrator accounts can open this dashboard.")
+            return self._admin_api(method, path)
 
         if path == "/api/applications":
             if method == "GET":
@@ -710,6 +825,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError(400, "Please correct the highlighted fields.", errors)
             app = create_application(clean)
             log("SAVED application %s | %s | %s | NID %s" % (app["id"], app["service"], app["name"], app["nid"]))
+            self.audit_detail = "%s - %s" % (app["id"], app["service"])
             return 201, app
 
         if path == "/api/payments":
@@ -721,15 +837,49 @@ class Handler(BaseHTTPRequestHandler):
             clean, errors = validate_payment(data)
             if errors:
                 raise ApiError(400, "Please correct the highlighted fields.", errors)
+            clean["payer_nid"] = user["nid"]
             pay = create_payment(clean)
             log("SAVED payment %s | %s | BDT %s | %s" % (pay["id"], pay["type"], pay["amount"], pay["method"]))
+            self.audit_detail = "%s - %s - BDT %s" % (pay["id"], pay["type"], pay["amount"])
             return 201, pay
+
+        raise ApiError(404, "Not found.")
+
+    def _admin_api(self, method, path):
+        """Admin dashboard routes. The caller has already been checked against ADMIN_NIDS."""
+        readers = {
+            "/api/admin/summary": admin_summary,
+            "/api/admin/audit": admin_audit_rows,
+            "/api/admin/overview": admin_overview,
+            "/api/admin/applications": list_applications,
+            "/api/admin/payments": list_payments,
+            "/api/admin/citizens": admin_citizens,
+        }
+        if path in readers:
+            if method != "GET":
+                raise ApiError(405, "Method not allowed.")
+            return 200, readers[path]()
+
+        match = re.fullmatch(r"/api/admin/applications/(APP-\d+)/status", path)
+        if match:
+            if method != "POST":
+                raise ApiError(405, "Method not allowed.")
+            data = self._read_json()
+            status = str(data.get("status", "")).strip()
+            if status not in APP_STATUSES:
+                raise ApiError(400, "Please choose a valid status.", {"status": "Choose a valid status."})
+            app_code = match.group(1)
+            old_status = change_application_status(app_code, status)
+            record_audit(self.audit_user or "Administrator", self.client_address[0], "Status", "Success", "Low",
+                         "%s - %s -> %s" % (app_code, old_status, status))
+            return 200, {"ok": True, "id": app_code, "status": status}
 
         raise ApiError(404, "Not found.")
 
     def _handle_api(self, method, path):
         status = 500
         self.audit_user = None
+        self.audit_detail = ""
         try:
             who = session_user(self)            # the logged-in user, if any (audit log only)
             self.audit_user = who["name"] if who else None
@@ -761,7 +911,7 @@ class Handler(BaseHTTPRequestHandler):
             ip = self.client_address[0]
             if action == "Login" and result == "Failed" and count_recent_login_failures(ip) >= 4:
                 severity = "High"               # 5th failed login from this address in 10 minutes
-            record_audit(self.audit_user or "Unknown user", ip, action, result, severity)
+            record_audit(self.audit_user or "Unknown user", ip, action, result, severity, self.audit_detail)
         except Exception:
             traceback.print_exc()               # logging must never break the portal
 
