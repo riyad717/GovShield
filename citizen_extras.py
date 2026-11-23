@@ -15,7 +15,7 @@ import json
 import re
 import secrets
 import sqlite3
-from datetime import date
+from datetime import date, datetime
 
 import sms_gateway
 
@@ -276,11 +276,12 @@ def clean_application(data):
 
     dob = str(data.get("date_of_birth", "")).strip()
     try:
-        born = date.fromisoformat(dob)
+        # strptime, not date.fromisoformat: the cPanel host runs Python 3.6
+        born = datetime.strptime(dob, "%Y-%m-%d").date()
         today = date.today()
         if not (today.year - 120 <= born.year and born <= today):
             raise ValueError
-        clean["date_of_birth"] = dob
+        clean["date_of_birth"] = born.isoformat()
     except ValueError:
         errors["date_of_birth"] = "Enter a valid date of birth."
 
