@@ -20,7 +20,7 @@ def handle(srv, handler, admin, profile, method, sub, passed):
     if sub == "/citizens" and method == "GET":
         need(srv, profile, "citizens.view")
         return list_citizens(srv, query)
-    match = re.fullmatch(r"/citizens/(\d+)/(active|reset-password)", sub)
+    match = re.fullmatch(r"/citizens/(\d+)/(active|reset-password|approval)", sub)
     if match and method == "POST":
         need(srv, profile, "citizens.manage")
         return citizen_action(srv, handler, admin, int(match.group(1)), match.group(2))
@@ -61,7 +61,7 @@ def _text(query, key, limit):
 def list_citizens(srv, query):
     q = _text(query, "q", 60)
     status = _text(query, "status", 10)
-    sql = """SELECT c.id, c.full_name, c.nid_number, c.phone_number, c.is_active, c.created_at,
+    sql = """SELECT c.id, c.full_name, c.nid_number, c.phone_number, c.is_active, c.approval, c.created_at,
              (SELECT COUNT(*) FROM applications a WHERE a.national_id = c.nid_number) AS applications
              FROM authorized_users c WHERE 1=1"""
     params = []
@@ -73,11 +73,13 @@ def list_citizens(srv, query):
         sql += " AND c.is_active = 1"
     elif status == "disabled":
         sql += " AND c.is_active = 0"
+    elif status == "pending":
+        sql += " AND c.approval = 'pending'"
     sql += " ORDER BY c.id LIMIT 300"
     rows = db_rows(srv, sql, params)
     return 200, {"citizens": [{
         "id": r["id"], "name": r["full_name"], "nid": srv.mask_nid(r["nid_number"]),
-        "phone": r["phone_number"], "active": bool(r["is_active"]),
+        "phone": r["phone_number"], "active": bool(r["is_active"]), "approval": r["approval"],
         "registered": r["created_at"], "applications": r["applications"],
     } for r in rows]}
 
@@ -96,6 +98,18 @@ def citizen_action(srv, handler, actor, citizen_id, action):
         if active:
             return 200, {"ok": True, "message": "Citizen account enabled."}
         return 200, {"ok": True, "message": "Citizen account disabled. Their sessions stop working at once."}
+    if action == "approval":
+        data = handler._read_json()
+        decision = str(data.get("decision", ""))
+        if decision == "approve":
+            db_write(srv, "UPDATE authorized_users SET approval = 'approved', is_active = 1 WHERE id = ?", (citizen_id,))
+            audit(srv, handler, actor["name"], "Citizen approved", "Success", "Low", who)
+            return 200, {"ok": True, "message": "Citizen approved. They can now log in."}
+        if decision == "reject":
+            db_write(srv, "UPDATE authorized_users SET approval = 'rejected', is_active = 0 WHERE id = ?", (citizen_id,))
+            audit(srv, handler, actor["name"], "Citizen rejected", "Success", "High", who)
+            return 200, {"ok": True, "message": "Registration rejected. This account cannot log in."}
+        raise srv.ApiError(400, "Choose approve or reject.")
     temp = temp_password()
     salt = secrets.token_hex(16)
     db_write(srv, "UPDATE authorized_users SET password_salt = ?, password_hash = ? WHERE id = ?",

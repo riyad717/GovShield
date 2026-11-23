@@ -748,76 +748,54 @@
 
 <!-- ================= LOGIN ================= -->
 
-<section id="login" class="page login-page">
+<section id="login" class="page pf-auth">
 
-    <div class="login-box">
+    <div class="pf-auth-wrap">
 
-        <h1>GovShield</h1>
+        <aside class="pf-auth-brand">
+            <div class="pf-brand-mark">GS</div>
+            <h2>Welcome back</h2>
+            <p>Log in to see your applications, payments and documents in one place.</p>
+            <ul class="pf-benefits">
+                <li>Apply for certificates and licences online</li>
+                <li>Pay government bills and keep the receipts</li>
+                <li>Track every application from one screen</li>
+            </ul>
+            <p class="pf-brand-note">Demo prototype · Not an official government website</p>
+        </aside>
 
-        <p>Secure Government Portal Login</p>
+        <div class="pf-auth-card">
 
+            <h1>Citizen login</h1>
+            <p class="pf-sub">Use the National ID and password of your GovShield account.</p>
 
-        <div class="form-group">
-
-            <label>National ID</label>
-
-            <input
-                type="text"
-                id="loginId"
-                placeholder="Enter your authorized test NID"
-            >
-
-        </div>
-
-
-        <div class="form-group">
-
-            <label>Password</label>
-
-            <div class="password-box">
-
-                <input
-                    type="password"
-                    id="password"
-                    placeholder="Enter password"
-                >
-
-                <button onclick="togglePassword()">
-                    👁
-                </button>
-
+            <div class="pf-field">
+                <label for="loginId">National ID<span class="req">*</span></label>
+                <input type="text" id="loginId" inputmode="numeric" maxlength="10" placeholder="10-digit National ID" autocomplete="username">
             </div>
 
+            <div class="pf-field">
+                <label for="password">Password<span class="req">*</span></label>
+                <div class="password-box">
+                    <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password">
+                    <button type="button" onclick="togglePassword()">👁</button>
+                </div>
+            </div>
+
+            <div class="pf-row">
+                <label class="pf-check"><input type="checkbox"> Remember me</label>
+                <a class="pf-link" onclick="alert('Password reset feature will be connected with backend.')">Forgot password?</a>
+            </div>
+
+            <button type="button" class="pf-btn login-btn" onclick="loginUser()">Login</button>
+
+            <div class="register-text">
+                New user? <a onclick="showPage('register')">Create an account</a>
+            </div>
+
+            <p id="loginMessage" class="pf-msg" role="alert"></p>
+
         </div>
-
-
-        <div class="login-options">
-
-            <label>
-                <input type="checkbox">
-                Remember me
-            </label>
-
-            <a onclick="alert('Password reset feature will be connected with backend.')">
-                Forgot Password?
-            </a>
-
-        </div>
-
-
-        <button
-            class="btn btn-primary login-btn"
-            onclick="loginUser()">
-
-            Login
-
-        </button>
-
-
-        <div class="register-text">
-            New user? <a onclick="showPage('register')">Create an account</a>
-        </div>
-        <p id="loginMessage" role="alert" style="margin-top:12px;color:#b91c1c;font-size:14px;"></p>
 
     </div>
 
@@ -1457,6 +1435,21 @@
 
         </div>
 
+        <div class="pf-card">
+            <h3><span class="pf-num">2</span> My details</h3>
+            <p class="pf-sub">These details come from your registration. You can add or change your email address here.</p>
+            <div class="pf-info" id="profileDetails"></div>
+            <form id="profileEmailForm" class="pf-email-form" novalidate>
+                <div class="pf-field">
+                    <label for="profileEmail">Email address <span class="pf-hint">(optional)</span></label>
+                    <input type="email" id="profileEmail" maxlength="120" placeholder="name@example.com" autocomplete="email">
+                    <small class="pf-err" id="profileEmailErr"></small>
+                </div>
+                <button type="submit" class="pf-btn" id="profileEmailBtn">Save email</button>
+                <p id="profileEmailMsg" class="pf-msg" role="alert"></p>
+            </form>
+        </div>
+
     </div>
 
 </section>
@@ -1464,114 +1457,69 @@
 
 <!-- ================= PAY ================= -->
 
-<section id="pay" class="page">
+<section id="pay" class="page pf-form">
 
-    <div class="container">
+    <div class="pf-apply">
 
-        <div class="section-title">
-
-            <h2>Pay Bills</h2>
-
-            <p>Government tax and utility payment</p>
-
+        <div class="pf-hero">
+            <div>
+                <div class="pf-kicker">Government payments</div>
+                <h2>Pay Bills</h2>
+                <p>Pay tax and utility bills. Every payment you make appears in your history below.</p>
+            </div>
         </div>
 
-
-        <div class="login-box" style="margin:auto; width:600px; max-width:100%;">
-
-            <div class="form-group">
-
-                <label>Payment Type</label>
-
-                <select id="payType">
-
-                    <option value="">Select Payment</option>
-                    <option>Tax</option>
-                    <option>Electricity Bill</option>
-                    <option>Water Bill</option>
-                    <option>Gas Bill</option>
-
-                </select>
-
+        <div class="pf-card">
+            <h3><span class="pf-num">1</span> Bill details</h3>
+            <div class="pf-grid-2">
+                <div class="pf-field">
+                    <label for="payType">Payment type<span class="req">*</span></label>
+                    <select id="payType">
+                        <option value="">Select payment</option>
+                        <option>Tax</option>
+                        <option>Electricity Bill</option>
+                        <option>Water Bill</option>
+                        <option>Gas Bill</option>
+                    </select>
+                </div>
+                <div class="pf-field">
+                    <label for="payRef">Account / reference number<span class="req">*</span></label>
+                    <input type="text" id="payRef" maxlength="20" placeholder="6 to 20 letters, numbers or hyphens">
+                </div>
+                <div class="pf-field pf-full">
+                    <label for="payAmount">Amount (BDT)<span class="req">*</span></label>
+                    <input type="text" id="payAmount" inputmode="decimal" placeholder="e.g. 200.00">
+                </div>
             </div>
-
-
-            <div class="form-group">
-
-                <label>Account / Reference Number</label>
-
-                <input
-                    type="text"
-                    id="payRef"
-                    placeholder="Enter reference number"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>Amount (BDT)</label>
-
-                <input
-                    type="text"
-                    id="payAmount"
-                    inputmode="decimal"
-                    placeholder="Enter amount"
-                >
-
-            </div>
-
-
-            <div class="form-group">
-
-                <label>Payment Method</label>
-
-                <label style="font-weight:normal;display:inline;margin-right:15px;"><input type="radio" name="payMethod" value="bKash" checked style="width:auto;"> bKash</label>
-                <label style="font-weight:normal;display:inline;margin-right:15px;"><input type="radio" name="payMethod" value="Nagad" style="width:auto;"> Nagad</label>
-                <label style="font-weight:normal;display:inline;"><input type="radio" name="payMethod" value="Card" style="width:auto;"> Card</label>
-
-            </div>
-
-
-            <button
-                class="btn btn-success"
-                style="width:100%;"
-                onclick="makePayment()">
-
-                Pay Now
-
-            </button>
-
-            <div id="payResult" style="display:none;margin-top:18px;padding:15px;border-radius:8px;background:#dcfce7;color:#166534;line-height:1.7;"></div>
-
         </div>
 
+        <div class="pf-card">
+            <h3><span class="pf-num">2</span> Payment method</h3>
+            <div class="pf-methods" role="radiogroup" aria-label="Payment method">
+                <label class="pf-method"><input type="radio" name="payMethod" value="bKash" checked><span>bKash</span></label>
+                <label class="pf-method"><input type="radio" name="payMethod" value="Nagad"><span>Nagad</span></label>
+                <label class="pf-method"><input type="radio" name="payMethod" value="Card"><span>Card</span></label>
+            </div>
+            <button type="button" class="pf-btn" id="payNowBtn" onclick="makePayment()">Pay Now</button>
+            <div id="payResult" class="pf-result" style="display:none"></div>
+        </div>
 
-        <br>
-
-        <div class="table-container">
-
-            <h2>Payment History</h2>
-
-            <br>
-
-            <table>
-
-                <thead>
-                    <tr>
-                        <th>Transaction ID</th>
-                        <th>Type</th>
-                        <th>Amount</th>
-                        <th>Method</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-
-                <tbody id="payHistory"></tbody>
-
-            </table>
-
+        <div class="pf-card">
+            <h3><span class="pf-num">3</span> Payment history</h3>
+            <div class="pf-table-wrap">
+                <table class="pf-table">
+                    <thead>
+                        <tr>
+                            <th>Transaction ID</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payHistory"></tbody>
+                </table>
+            </div>
         </div>
 
     </div>
@@ -2041,7 +1989,8 @@
         return token ? { "Authorization": "Bearer " + token } : {};
     }
 
-    function showPage(pageId) {
+    function showPage(pageId, fromHistory) {
+        const requestedPage = pageId;
         const publicPages = ["home", "login", "register"];
         if (!publicPages.includes(pageId) && !currentGovShieldUser) {
             pageId = "login";
@@ -2049,6 +1998,17 @@
         // a logged-in citizen never sees the login or register forms
         if (currentGovShieldUser && (pageId === "login" || pageId === "register")) {
             pageId = "dashboard";
+        }
+        // record the page in browser history, so the Back button moves between pages of this site.
+        // A redirected page, or a dashboard reached from a login form, replaces the entry instead,
+        // so Back does not land on a login form that just shows the dashboard again.
+        if (!fromHistory && !(history.state && history.state.page === pageId)) {
+            const leavingAuthPage = Boolean(history.state && ["login", "register"].includes(history.state.page));
+            if (history.state === null || requestedPage !== pageId || (leavingAuthPage && pageId === "dashboard")) {
+                history.replaceState({ page: pageId }, "", "#" + pageId);
+            } else {
+                history.pushState({ page: pageId }, "", "#" + pageId);
+            }
         }
         document.querySelectorAll("nav button").forEach(button => {
             button.classList.toggle("nav-active", button.getAttribute("onclick") === "showPage('" + pageId + "')");
@@ -2067,6 +2027,12 @@
             window.scrollTo({ top: 0, behavior: "smooth" });
         }
     }
+
+    // Back and Forward inside the site: show the page that was recorded in history
+    window.addEventListener("popstate", function (event) {
+        const page = event.state && event.state.page ? event.state.page : "home";
+        showPage(page, true);
+    });
 
     function togglePassword() {
         const field = document.getElementById("password");

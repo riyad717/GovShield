@@ -6,7 +6,7 @@ const MGMT_CASE_STATUSES = ["Pending", "Processing", "Approved", "Rejected"];
 
 const MGMT_CITIZEN_TOOLBAR = '<input class="adm-input" type="search" placeholder="Search name, NID or phone" data-field="q" data-mgmt-filter="citizens">'
     + '<select class="adm-select" data-field="status" data-mgmt-filter="citizens">'
-    + '<option value="all">All accounts</option><option value="active">Active only</option><option value="disabled">Disabled only</option></select>';
+    + '<option value="all">All accounts</option><option value="pending">Waiting approval</option><option value="active">Active only</option><option value="disabled">Disabled only</option></select>';
 
 const MGMT_CASE_TOOLBAR = '<input class="adm-input" type="search" placeholder="Search code, name or NID" data-field="q" data-mgmt-filter="cases">'
     + '<select class="adm-select" data-field="status" data-mgmt-filter="cases"><option value="">All statuses</option>'
@@ -90,15 +90,25 @@ async function mgmtOpsCitizens() {
         if (seq !== MGMT_OPS.seq.citizens) return;
         const canManage = mgmtHas("citizens.manage");
         const rows = data.citizens.map(function (c) {
-            const actions = canManage
-                ? '<td><div class="adm-mgmt-actions"><button class="adm-btn small" data-mgmt="citizen-active" data-id="' + c.id
+            const pending = c.approval === "pending";
+            const rejected = c.approval === "rejected";
+            const who = ' data-id="' + c.id + '" data-name="' + escapeHtml(c.name) + '"';
+            let actions = "";
+            if (canManage && (pending || rejected)) {
+                actions = '<td><div class="adm-mgmt-actions"><button class="adm-btn small primary" data-mgmt="citizen-approval"'
+                    + who + ' data-decision="approve">Approve</button>'
+                    + (pending ? '<button class="adm-btn small" data-mgmt="citizen-approval"' + who + ' data-decision="reject">Reject</button>' : "")
+                    + '</div></td>';
+            } else if (canManage) {
+                actions = '<td><div class="adm-mgmt-actions"><button class="adm-btn small" data-mgmt="citizen-active" data-id="' + c.id
                     + '" data-value="' + (c.active ? "0" : "1") + '">' + (c.active ? "Disable" : "Enable") + '</button>'
                     + '<button class="adm-btn small" data-mgmt="citizen-reset" data-id="' + c.id + '" data-name="' + escapeHtml(c.name)
-                    + '">Reset password</button></div></td>'
-                : "";
+                    + '">Reset password</button></div></td>';
+            }
             return '<tr><td><strong>' + escapeHtml(c.name) + '</strong></td><td>' + escapeHtml(c.nid) + '</td><td>'
                 + escapeHtml(c.phone) + '</td><td>' + c.applications + '</td><td>' + escapeHtml(c.registered) + '</td><td>'
-                + mgmtPill(c.active, "Active", "Disabled") + '</td>' + actions + '</tr>';
+                + (pending ? admPill("Waiting approval", "warn") : rejected ? admPill("Rejected", "bad")
+                    : mgmtPill(c.active, "Active", "Disabled")) + '</td>' + actions + '</tr>';
         }).join("");
         const cols = canManage ? 7 : 6;
         table.innerHTML = '<div class="adm-table-wrap"><table class="adm-table"><thead><tr><th>Name</th><th>NID</th><th>Phone</th>'
@@ -248,6 +258,16 @@ async function mgmtOpsAct(action, el) {
         const enable = el.dataset.value === "1";
         if (!window.confirm(enable ? "Enable this citizen account?" : "Disable this citizen account? They will be signed out at once.")) return;
         const result = await mgmtRequest("/citizens/" + el.dataset.id + "/active", { active: enable });
+        admToast(result.message, true);
+        return mgmtOpsCitizens();
+    }
+    if (action === "citizen-approval") {
+        const approve = el.dataset.decision === "approve";
+        const question = approve
+            ? "Approve " + (el.dataset.name || "this citizen") + "? They can then log in."
+            : "Reject " + (el.dataset.name || "this registration") + "? The account will not be able to log in.";
+        if (!window.confirm(question)) return;
+        const result = await mgmtRequest("/citizens/" + el.dataset.id + "/approval", { decision: el.dataset.decision });
         admToast(result.message, true);
         return mgmtOpsCitizens();
     }

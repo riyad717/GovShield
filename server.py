@@ -248,7 +248,7 @@ def register_account(clean):
                 raise ApiError(409, "An account already exists for this NID. Please log in.")
             salt = secrets.token_hex(16)
             conn.execute(
-                "INSERT INTO authorized_users (full_name, nid_number, phone_number, address, password_salt, password_hash) VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO authorized_users (full_name, nid_number, phone_number, address, password_salt, password_hash, approval) VALUES (?, ?, ?, ?, ?, ?, 'pending')",
                 (record["full_name"], clean["nid"], record["phone_number"], record["address"],
                  salt, password_digest(clean["password"], salt)),
             )
@@ -308,17 +308,18 @@ def authenticate_user(nid, password):
     conn = connect()
     try:
         row = conn.execute(
-            "SELECT id, full_name, nid_number, password_salt, password_hash, is_active FROM authorized_users WHERE nid_number = ?",
+            "SELECT id, full_name, nid_number, password_salt, password_hash, is_active, approval FROM authorized_users WHERE nid_number = ?",
             (nid.strip(),),
         ).fetchone()
     finally:
         conn.close()
-    if not row or not row["is_active"]:
+    if not row:
         return None
     candidate = password_digest(password, row["password_salt"])
     if not hmac.compare_digest(candidate, row["password_hash"]):
         return None
-    return {"id": row["id"], "name": row["full_name"], "nid": row["nid_number"]}
+    return {"id": row["id"], "name": row["full_name"], "nid": row["nid_number"],
+            "active": bool(row["is_active"]), "approval": row["approval"]}
 
 
 def verify_token(token):
@@ -885,13 +886,22 @@ class Handler(BaseHTTPRequestHandler):
             if not user:
                 self.audit_user = "NID " + mask_nid(nid)          # audit log only
                 raise ApiError(401, "Invalid National ID or password, or account not authorized.")
+            if user["approval"] == "pending":
+                self.audit_user = "NID " + mask_nid(nid)
+                raise ApiError(403, "Your account is waiting for approval from an administrator. Please try again later.")
+            if user["approval"] == "rejected":
+                self.audit_user = "NID " + mask_nid(nid)
+                raise ApiError(403, "This registration was not approved. Please contact the office.")
+            if not user["active"]:
+                self.audit_user = "NID " + mask_nid(nid)
+                raise ApiError(401, "Invalid National ID or password, or account not authorized.")
             token = create_session("citizen", user["id"])
             self.audit_user = user["name"]                        # audit log only
             log("AUTHENTICATED authorized demo account %s" % user["nid"])
             return 200, {"token": token, "user": {"name": user["name"], "nid": user["nid"]}}
 
         # sign-up with a phone code, and the profile photo (citizen_extras.py)
-        if path in ("/api/register/code", "/api/register/verify", "/api/me/photo"):
+        if path in ("/api/register/code", "/api/register/verify", "/api/me/photo", "/api/me/profile"):
             return citizen_extras.handle(sys.modules[__name__], self, method, path)
 
         if path == "/api/register":
@@ -907,7 +917,7 @@ class Handler(BaseHTTPRequestHandler):
                 raise ApiError(400, "Please correct the highlighted fields.", errors)
             register_account(clean)
             log("REGISTERED new account for NID %s" % mask_nid(clean["nid"]))
-            return 201, {"ok": True, "message": "Registration successful. You can now log in."}
+            return 201, {"ok": True, "message": citizen_extras.APPROVAL_MESSAGE}
 
         if path == "/api/logout":
             if method != "POST":

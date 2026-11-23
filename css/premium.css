@@ -241,5 +241,91 @@
 #apply textarea { padding: 12px 14px; min-height: 84px; resize: vertical; line-height: 1.5; }
 
 @media (prefers-reduced-motion: reduce) {
-    #register *, #apply *, #profile * { transition: none !important; animation: none !important; }
+    #register *, #apply *, #profile *, #login *, #pay * { transition: none !important; animation: none !important; }
 }
+
+/* ---------- Login, Pay Bills, Track, Documents, Security (same family) ---------- */
+
+#login, #pay, #track, #documents, #security {
+    --pf-radius: 18px;
+    --pf-line: #dbe4ee;
+    --pf-ink: #0f172a;
+    --pf-muted: #64748b;
+    --pf-focus: rgba(56, 189, 248, 0.35);
+}
+
+/* Login */
+#login.pf-auth { min-height: calc(100vh - 70px); padding: 48px 16px 64px; background: linear-gradient(180deg, #eaf4fb 0%, #f1f5f9 60%); }
+#login .pf-field { display: grid; gap: 6px; margin-bottom: 14px; }
+#login .pf-field label { font-size: 13px; font-weight: 600; color: #334155; }
+#login .pf-field label .req { color: #dc2626; margin-left: 2px; }
+#login input[type="text"], #login input[type="password"] {
+    width: 100%; box-sizing: border-box; height: 48px; padding: 0 14px;
+    border: 1.5px solid var(--pf-line); border-radius: 12px; background: #fff;
+    font: inherit; font-size: 15px; color: var(--pf-ink);
+    transition: border-color .18s ease, box-shadow .18s ease;
+}
+#login input:focus { outline: none; border-color: var(--gs-sky, #38bdf8); box-shadow: 0 0 0 4px var(--pf-focus); }
+#login .password-box input { padding-right: 52px; }
+#login .password-box button { right: 10px; top: 10px; height: 28px; line-height: 1; }
+#login .pf-row { margin: 4px 0 18px; }
+#login .pf-check { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: #334155; cursor: pointer; }
+#login .pf-check input[type="checkbox"] { width: 17px; height: 17px; margin: 0; accent-color: #0369a1; }
+#login .pf-btn { margin-top: 4px; }
+#login .register-text { margin-top: 18px; text-align: center; font-size: 14px; color: var(--pf-muted); }
+#login .register-text a { color: var(--gs-blue, #0369a1); font-weight: 600; cursor: pointer; }
+#login .pf-msg { color: #b91c1c; text-align: center; }
+
+/* Pay Bills */
+#pay.page { padding-bottom: 60px; background: linear-gradient(180deg, #eaf4fb 0%, #f1f5f9 420px); }
+#pay .pf-field { display: grid; gap: 6px; margin-bottom: 14px; }
+#pay .pf-field label { font-size: 13px; font-weight: 600; color: #334155; }
+#pay .pf-field label .req { color: #dc2626; margin-left: 2px; }
+#pay input[type="text"], #pay select {
+    width: 100%; box-sizing: border-box; height: 48px; padding: 0 14px;
+    border: 1.5px solid var(--pf-line); border-radius: 12px; background: #fff;
+    font: inherit; font-size: 15px; color: var(--pf-ink);
+}
+#pay input:focus, #pay select:focus { outline: none; border-color: var(--gs-sky, #38bdf8); box-shadow: 0 0 0 4px var(--pf-focus); }
+#pay .pf-methods { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+.pf-method { position: relative; cursor: pointer; }
+.pf-method input { position: absolute; opacity: 0; pointer-events: none; }
+.pf-method span {
+    display: grid; place-items: center; height: 52px; border: 1.5px solid var(--pf-line); border-radius: 14px;
+    font-weight: 700; color: #334155; background: #fff; transition: all .18s ease;
+}
+.pf-method input:checked + span { border-color: #0369a1; background: #f0f9ff; color: #0b3450; box-shadow: 0 0 0 4px var(--pf-focus); }
+.pf-method input:focus-visible + span { outline: 2px solid #0369a1; outline-offset: 2px; }
+.pf-result { margin-top: 18px; padding: 16px 18px; border-radius: 14px; background: #dcfce7; color: #166534; line-height: 1.7; font-size: 14.5px; }
+.pf-table-wrap { overflow-x: auto; max-width: 100%; }
+#pay .pf-apply > .pf-card { min-width: 0; }
+.pf-table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+.pf-table th, .pf-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #eef2f7; }
+.pf-table th { background: #f8fafc; color: #334155; font-size: 13px; }
+@media (max-width: 640px) { .pf-methods { grid-template-columns: 1fr; } }
+
+/* Track, Documents, Security: same card and input look */
+#track.page, #documents.page, #security.page { padding-bottom: 60px; background: linear-gradient(180deg, #eaf4fb 0%, #f1f5f9 420px); }
+#track .table-container, #documents .table-container, #security .security-panel {
+    border: 1px solid var(--pf-line); border-radius: var(--pf-radius);
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 12px 32px rgba(15, 23, 42, 0.06);
+}
+#track input, #track select, #documents input, #documents select {
+    box-sizing: border-box; height: 46px; padding: 0 14px; border: 1.5px solid var(--pf-line);
+    border-radius: 12px; background: #fff; font: inherit; font-size: 15px; color: var(--pf-ink);
+}
+#track input:focus, #track select:focus, #documents input:focus, #documents select:focus {
+    outline: none; border-color: var(--gs-sky, #38bdf8); box-shadow: 0 0 0 4px var(--pf-focus);
+}
+
+/* My details (Profile) */
+#profile .pf-field label { font-size: 13px; font-weight: 600; color: #334155; }
+#profile input[type="email"] {
+    width: 100%; box-sizing: border-box; height: 48px; padding: 0 14px; border: 1.5px solid var(--pf-line);
+    border-radius: 12px; background: #fff; font: inherit; font-size: 15px; color: var(--pf-ink);
+}
+#profile input:focus { outline: none; border-color: var(--gs-sky, #38bdf8); box-shadow: 0 0 0 4px var(--pf-focus); }
+#profile .pf-err { color: #b91c1c; font-size: 12.5px; }
+#profile .pf-err:empty { display: none; }
+.pf-email-form { margin-top: 22px; display: grid; gap: 4px; }
+.pf-email-form .pf-btn { width: auto; padding: 0 22px; height: 46px; justify-self: start; font-size: 15px; }

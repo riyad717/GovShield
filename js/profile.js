@@ -57,6 +57,7 @@ onPageShow("profile", function () {
     profileRenderUser();
     profileSetMessage("", true);
     profileLoad();
+    profileLoadDetails();
 });
 
 document.addEventListener("DOMContentLoaded", function () {
@@ -124,3 +125,61 @@ async function removeProfilePhoto() {
         profileSetMessage(error.message, false);
     }
 }
+
+/* ---------- My details ---------- */
+
+const PROFILE_STATUS_TEXT = {
+    approved: "Active",
+    pending: "Waiting for admin approval",
+    rejected: "Not approved"
+};
+
+function profileRow(label, value) {
+    return "<div><span>" + escapeHtml(label) + "</span><b>" + escapeHtml(value || "Not added") + "</b></div>";
+}
+
+async function profileLoadDetails() {
+    const box = document.getElementById("profileDetails");
+    try {
+        const result = await apiRequest("/api/me/profile");
+        const p = result.profile;
+        box.innerHTML = profileRow("Full name", p.name)
+            + profileRow("National ID", p.nid)
+            + profileRow("Mobile number", p.phone)
+            + profileRow("Address", p.address)
+            + profileRow("Email", p.email)
+            + profileRow("Account status", PROFILE_STATUS_TEXT[p.status] || p.status)
+            + profileRow("Registered on", p.registered);
+        document.getElementById("profileEmail").value = p.email || "";
+    } catch (error) {
+        box.innerHTML = "<p class=\"pf-msg\" style=\"color:#b91c1c\">" + escapeHtml(error.message) + "</p>";
+    }
+}
+
+async function profileSaveEmail(event) {
+    event.preventDefault();
+    const email = document.getElementById("profileEmail").value.trim();
+    const button = document.getElementById("profileEmailBtn");
+    const message = document.getElementById("profileEmailMsg");
+    document.getElementById("profileEmailErr").textContent = "";
+    message.textContent = "";
+    button.disabled = true;
+    button.textContent = "Saving...";
+    try {
+        const result = await apiRequest("/api/me/profile", { method: "POST", body: { email: email } });
+        message.style.color = "#15803d";
+        message.textContent = result.message;
+        profileLoadDetails();
+    } catch (error) {
+        const errors = error.fieldErrors || {};
+        document.getElementById("profileEmailErr").textContent = errors.email || error.message;
+    } finally {
+        button.disabled = false;
+        button.textContent = "Save email";
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("profileEmailForm");
+    if (form) form.addEventListener("submit", profileSaveEmail);
+});

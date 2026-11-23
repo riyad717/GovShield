@@ -78,7 +78,7 @@ async function regRequestCode(values, button) {
     try {
         const result = await apiRequest("/api/register/code", { method: "POST", body: values });
         if (result.verified) {
-            regFinishToLogin(values.nid, "Registration successful. Please log in.");
+            regFinishToLogin(values.nid, "Registration received. An administrator must approve your account before you can log in.");
             return;
         }
         regPendingNid = values.nid;
@@ -138,7 +138,7 @@ async function verifyRegistration() {
     button.textContent = "Checking...";
     try {
         await apiRequest("/api/register/verify", { method: "POST", body: { nid: regPendingNid, code: code } });
-        regFinishToLogin(regPendingNid, "Account created. Please log in.");
+        regFinishToLogin(regPendingNid, "Registration received. An administrator must approve your account before you can log in.");
     } catch (error) {
         regSetError("regCodeErr", error.message);
     } finally {

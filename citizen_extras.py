@@ -32,6 +32,9 @@ APPLICATION_TEXT_KEYS = [
 # columns added on start-up, so databases from earlier versions are upgraded in place
 COLUMNS = [("authorized_users", "photo_data", "BLOB"),
            ("authorized_users", "photo_type", "TEXT NOT NULL DEFAULT ''"),
+           # new sign-ups wait for an administrator; accounts that already exist stay approved
+           ("authorized_users", "approval", "TEXT NOT NULL DEFAULT 'approved'"),
+           ("authorized_users", "email", "TEXT NOT NULL DEFAULT ''"),
            ("applications", "photo_data", "BLOB"),
            ("applications", "photo_type", "TEXT NOT NULL DEFAULT ''")]
 COLUMNS += [("applications", key, "TEXT NOT NULL DEFAULT ''") for key in APPLICATION_TEXT_KEYS]
@@ -70,9 +73,14 @@ def ensure_schema(conn):
             conn.execute("ALTER TABLE %s ADD COLUMN %s %s" % (table, column, definition))
 
 
+APPROVAL_MESSAGE = "Registration received. An administrator must approve your account before you can log in."
+
+
 def handle(srv, handler, method, path):
     if path == "/api/me/photo":
         return photo(srv, handler, method)
+    if path == "/api/me/profile":
+        return profile(srv, handler, method)
     if method != "POST":
         raise srv.ApiError(405, "Method not allowed.")
     if path == "/api/register/code":
@@ -130,8 +138,8 @@ def create_account(srv, nid, full_name, phone, address, salt, digest):
             if conn.execute("SELECT 1 FROM authorized_users WHERE nid_number = ?", (nid,)).fetchone():
                 raise srv.ApiError(409, "An account already exists for this NID. Please log in.")
             conn.execute(
-                "INSERT INTO authorized_users (full_name, nid_number, phone_number, address, password_salt, password_hash) "
-                "VALUES (?, ?, ?, ?, ?, ?)",
+                "INSERT INTO authorized_users (full_name, nid_number, phone_number, address, password_salt, password_hash, approval) "
+                "VALUES (?, ?, ?, ?, ?, ?, 'pending')",
                 (full_name, nid, phone, address, salt, digest))
     except sqlite3.IntegrityError:
         raise srv.ApiError(409, "An account already exists for this NID. Please log in.")
@@ -154,7 +162,7 @@ def request_code(srv, handler):
     if settings["mode"] == "off":
         create_account(srv, clean["nid"], record["full_name"], record["phone_number"], record["address"], salt, digest)
         srv.log("REGISTERED new account for NID %s" % srv.mask_nid(clean["nid"]))
-        return 201, {"ok": True, "verified": True, "message": "Registration successful. You can now log in."}
+        return 201, {"ok": True, "verified": True, "message": APPROVAL_MESSAGE}
 
     pending = {"nid": clean["nid"], "full_name": record["full_name"], "phone_number": record["phone_number"],
                "address": record["address"], "password_salt": salt, "password_hash": digest}
@@ -181,7 +189,7 @@ def verify(srv, handler):
                    row["password_salt"], row["password_hash"])
     sms_gateway.delete_pending(srv, nid)
     srv.log("REGISTERED new account for NID %s (phone verified)" % srv.mask_nid(nid))
-    return 201, {"ok": True, "verified": True, "message": "Registration successful. You can now log in."}
+    return 201, {"ok": True, "verified": True, "message": APPROVAL_MESSAGE}
 
 
 # ---------- profile photo ----------
@@ -309,6 +317,35 @@ def clean_application(data):
     if data.get("declaration") is not True:
         errors["declaration"] = "Please confirm that the information is correct."
     return clean, errors
+
+
+def profile(srv, handler, method):
+    """My Profile: the account's details (GET) and the email address (POST)."""
+    user = srv.session_user(handler)
+    if not user:
+        raise srv.ApiError(401, "Please log in.")
+    conn = srv.connect()
+    try:
+        if method == "GET":
+            row = conn.execute(
+                "SELECT full_name, nid_number, phone_number, address, email, approval, created_at "
+                "FROM authorized_users WHERE id = ?", (user["id"],)).fetchone()
+            return 200, {"profile": {
+                "name": row["full_name"], "nid": row["nid_number"], "phone": row["phone_number"],
+                "address": row["address"], "email": row["email"], "status": row["approval"],
+                "registered": row["created_at"]}}
+        if method != "POST":
+            raise srv.ApiError(405, "Method not allowed.")
+        data = handler._read_json()
+        email = str(data.get("email", "")).strip()[:120]
+        if email and not EMAIL_RE.fullmatch(email):
+            raise srv.ApiError(400, "Please correct the highlighted fields.",
+                               {"email": "Enter a valid email address, or leave the box empty."})
+        with conn:
+            conn.execute("UPDATE authorized_users SET email = ? WHERE id = ?", (email, user["id"]))
+        return 200, {"ok": True, "email": email, "message": "Email saved."}
+    finally:
+        conn.close()
 
 
 def application_details(row):
