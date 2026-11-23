@@ -3,7 +3,7 @@
 
 const MGMT = { me: null, roles: null, sub: "my", setup: null, busy: false, pane: null, cases: [], staff: [] };
 
-const MGMT_SUB_PERMS = { admins: "admins.view", citizens: "citizens.view", cases: "cases.view", audit: "audit.view" };
+const MGMT_SUB_PERMS = { admins: "admins.view", citizens: "citizens.view", cases: "cases.view", audit: "audit.view", sms: "sms.manage" };
 
 const MGMT_SHELL_HTML = ''
     + '<div class="adm-mgmt" id="mgmtRoot">'
@@ -15,6 +15,7 @@ const MGMT_SHELL_HTML = ''
     + '<button class="adm-mgmt-subtab" data-mgmt="sub" data-sub="citizens">Citizens</button>'
     + '<button class="adm-mgmt-subtab" data-mgmt="sub" data-sub="cases">Cases</button>'
     + '<button class="adm-mgmt-subtab" data-mgmt="sub" data-sub="audit">Audit trail</button>'
+    + '<button class="adm-mgmt-subtab" data-mgmt="sub" data-sub="sms">SMS and API</button>'
     + '<button class="adm-mgmt-subtab" data-mgmt="sub" data-sub="roles">Roles and rights</button>'
     + '</div>'
     + '<div class="adm-mgmt-view active" data-view="my"></div>'
@@ -22,6 +23,7 @@ const MGMT_SHELL_HTML = ''
     + '<div class="adm-mgmt-view" data-view="citizens"></div>'
     + '<div class="adm-mgmt-view" data-view="cases"></div>'
     + '<div class="adm-mgmt-view" data-view="audit"></div>'
+    + '<div class="adm-mgmt-view" data-view="sms"></div>'
     + '<div class="adm-mgmt-view" data-view="roles"></div>'
     + '</div></div>';
 

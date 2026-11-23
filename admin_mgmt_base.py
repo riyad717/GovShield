@@ -30,11 +30,12 @@ PERMISSION_LABELS = {
     "cases.work": "Add notes, assign cases and change application status",
     "audit.view": "See the audit trail",
     "roles.view": "See roles and rights",
+    "sms.manage": "Set the SMS provider API and turn sign-up phone codes on or off",
 }
 
 ROLE_PERMS = {
     "super_admin": {"admins.view", "admins.manage", "citizens.view", "citizens.manage",
-                    "cases.view", "cases.work", "audit.view", "roles.view"},
+                    "cases.view", "cases.work", "audit.view", "roles.view", "sms.manage"},
     "officer": {"citizens.view", "citizens.manage", "cases.view", "cases.work", "roles.view"},
     "viewer": {"citizens.view", "cases.view", "audit.view", "roles.view"},
 }

@@ -7,6 +7,7 @@ import re
 import secrets
 from urllib.parse import parse_qs, urlparse
 
+import citizen_extras
 from admin_mgmt_base import (
     PERMISSION_LABELS, ROLE_NOTES, ROLE_PERMS, ROLES, audit, db_one, db_rows, db_write,
     permissions_for, temp_password,
@@ -150,6 +151,8 @@ def case_detail(srv, code):
     staff = db_rows(srv, "SELECT id, full_name FROM admin_users WHERE is_active = 1 ORDER BY full_name")
     return 200, {
         "staff": [{"id": s["id"], "name": s["full_name"]} for s in staff],
+        "details": citizen_extras.application_details(app),
+        "photo": citizen_extras.photo_data_url(app),
         "case": {
             "code": app["app_code"], "service": app["service"], "name": app["applicant_name"],
             "nid": srv.mask_nid(app["national_id"] or ""), "address": app["address"] or "",

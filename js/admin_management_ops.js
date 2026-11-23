@@ -29,6 +29,7 @@ function mgmtOpsRender(sub) {
     if (sub === "citizens") return mgmtOpsCitizens();
     if (sub === "cases") return mgmtOpsCases();
     if (sub === "audit") return mgmtOpsAudit();
+    if (sub === "sms") return mgmtOpsSms();
 }
 
 function mgmtOpsField(view, name) {
@@ -176,7 +177,7 @@ async function mgmtOpsOpenCase(code) {
         '<p>' + escapeHtml(c.name) + ' &middot; NID ' + escapeHtml(c.nid) + '</p>'
         + '<p class="adm-mgmt-hint">' + escapeHtml(c.address || "No address on file") + '</p>'
         + '<p>Status: ' + mgmtStatusPill(c.status) + ' &middot; Assigned: ' + escapeHtml(c.assigned_to || "nobody") + '</p>'
-        + work
+        + work + mgmtOpsDetailsHtml(data)
         + '<h4 class="adm-mgmt-sub">Notes</h4>' + addNote + notes
         + '<h4 class="adm-mgmt-sub">History</h4>' + history);
 }
@@ -279,7 +280,84 @@ async function mgmtOpsAct(action, el) {
     if (action === "audit-csv") return mgmtOpsCsv();
 }
 
+/* ---------- Applicant form details (case dialog) ---------- */
+
+function mgmtOpsDetailsHtml(data) {
+    const photo = data.photo
+        ? '<div class="adm-mgmt-photo"><img src="' + escapeHtml(data.photo) + '" alt="Applicant photo"></div>'
+        : '<p class="adm-mgmt-hint">No photo was attached to this application.</p>';
+    const rows = (data.details || []).map(function (d) {
+        return '<tr><th>' + escapeHtml(d.label) + '</th><td>' + escapeHtml(d.value) + '</td></tr>';
+    }).join("");
+    const details = rows
+        ? '<div class="adm-table-wrap"><table class="adm-table"><tbody>' + rows + '</tbody></table></div>'
+        : '<p class="adm-mgmt-hint">No extra form details on this application.</p>';
+    return '<h4 class="adm-mgmt-sub">Applicant form</h4>' + photo + details;
+}
+
+/* ---------- SMS and API (sign-up phone codes) ---------- */
+
+const MGMT_SMS_MODES = [
+    ["off", "Off: no phone check at sign-up"],
+    ["demo", "Demo: show the code on screen, send nothing"],
+    ["live", "Live: send the code by SMS through the provider"]
+];
+
+async function mgmtOpsSms() {
+    const view = mgmtView("sms");
+    let s;
+    try {
+        s = await mgmtRequest("/sms");
+    } catch (error) {
+        if (!error.sessionEnded) view.innerHTML = mgmtNotice(error.message, true);
+        return;
+    }
+    const modes = MGMT_SMS_MODES.map(function (m) {
+        return '<option value="' + m[0] + '"' + (m[0] === s.mode ? " selected" : "") + '>' + escapeHtml(m[1]) + '</option>';
+    }).join("");
+    const methods = ["GET", "POST"].map(function (m) {
+        return '<option' + (m === s.http_method ? " selected" : "") + '>' + m + '</option>';
+    }).join("");
+    const keyNote = s.has_key
+        ? "Saved as " + escapeHtml(s.key_hint) + ". Leave this blank to keep the current key."
+        : "No key saved yet. Live mode needs one.";
+    view.innerHTML = '<div class="adm-mgmt-card"><h3>Sign-up phone codes</h3>'
+        + '<p>When the phone code is on, a new citizen must enter a 6-digit code sent to their mobile before the account opens. Use Demo while testing. Live sends real SMS through your provider.</p>'
+        + '<form class="adm-mgmt-form adm-mgmt-stack" data-mgmt-form="sms-settings" novalidate>'
+        + '<div class="adm-mgmt-field"><label>Mode</label><select class="adm-select" name="mode">' + modes + '</select><div class="adm-mgmt-err" data-err="mode"></div></div>'
+        + '<div class="adm-mgmt-field"><label>Provider URL</label><input class="adm-input" name="api_url" value="' + escapeHtml(s.api_url) + '" maxlength="500" placeholder="https://provider.example/send?key={apikey}&amp;sender={sender}&amp;to={to}&amp;msg={message}"><div class="adm-mgmt-err" data-err="api_url"></div></div>'
+        + '<div class="adm-mgmt-field"><label>Request method</label><select class="adm-select" name="http_method">' + methods + '</select><div class="adm-mgmt-err" data-err="http_method"></div></div>'
+        + '<div class="adm-mgmt-field"><label>API key</label><input class="adm-input" type="password" name="api_key" autocomplete="new-password" placeholder="' + (s.has_key ? "Saved" : "Paste the key") + '"><div class="adm-mgmt-hint">' + keyNote + '</div><div class="adm-mgmt-err" data-err="api_key"></div></div>'
+        + '<div class="adm-mgmt-field"><label>Sender ID</label><input class="adm-input" name="sender_id" value="' + escapeHtml(s.sender_id) + '" maxlength="20"><div class="adm-mgmt-err" data-err="sender_id"></div></div>'
+        + '<div class="adm-mgmt-field"><label>Success word in the reply</label><input class="adm-input" name="success_text" value="' + escapeHtml(s.success_text) + '" maxlength="60"><div class="adm-mgmt-hint">If the provider reply contains this word, the SMS counts as sent.</div><div class="adm-mgmt-err" data-err="success_text"></div></div>'
+        + '<p class="adm-mgmt-hint">Placeholders: {apikey}, {sender}, {to}, {message}. Values are encoded for the URL automatically.</p>'
+        + '<div><button class="adm-btn primary" type="submit">Save settings</button></div>'
+        + '<div class="adm-mgmt-msg" data-msg></div></form></div>'
+        + '<div class="adm-mgmt-card"><h3>Send a test SMS</h3><p>Checks the provider with a real message. In Demo mode nothing is sent.</p>'
+        + '<form class="adm-mgmt-form adm-mgmt-stack" data-mgmt-form="sms-test" novalidate>'
+        + '<div class="adm-mgmt-field"><label>Mobile number</label><input class="adm-input" name="to" maxlength="16" placeholder="01XXXXXXXXX"><div class="adm-mgmt-err" data-err="to"></div></div>'
+        + '<div class="adm-mgmt-field"><label>Message (optional)</label><input class="adm-input" name="message" maxlength="160"><div class="adm-mgmt-err" data-err="message"></div></div>'
+        + '<div><button class="adm-btn" type="submit">Send test</button></div>'
+        + '<div class="adm-mgmt-msg" data-msg></div></form></div>';
+}
+
+async function mgmtOpsSmsSave(data) {
+    const result = await mgmtRequest("/sms", {
+        mode: data.mode, api_url: data.api_url, http_method: data.http_method,
+        api_key: data.api_key, sender_id: data.sender_id, success_text: data.success_text
+    });
+    admToast(result.message || "SMS settings saved.", true);
+    return mgmtOpsSms();
+}
+
+async function mgmtOpsSmsTest(form, data) {
+    const result = await mgmtRequest("/sms/test", { to: data.to, message: data.message });
+    mgmtFlash(form, result.message, false);
+}
+
 async function mgmtOpsForm(name, form, data) {
+    if (name === "sms-settings") return mgmtOpsSmsSave(data);
+    if (name === "sms-test") return mgmtOpsSmsTest(form, data);
     if (name === "case-note") {
         const code = form.dataset.code;
         await mgmtRequest("/cases/" + code + "/notes", { note: data.note });

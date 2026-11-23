@@ -542,6 +542,7 @@
     <link rel="stylesheet" href="css/track.css">
     <link rel="stylesheet" href="css/documents.css">
     <link rel="stylesheet" href="css/citizen.css">
+    <link rel="stylesheet" href="css/premium.css">
 
 </head>
 
@@ -567,6 +568,7 @@
         <button id="navLogin" onclick="showPage('login')">Login</button>
         <button id="navRegister" onclick="showPage('register')">Register</button>
         <button id="navDashboard" onclick="showPage('dashboard')" style="display:none">Dashboard</button>
+        <button id="navProfile" onclick="showPage('profile')" style="display:none">My Profile</button>
         <button id="navLogout" onclick="logoutDevice()" style="display:none">Logout</button>
         <p class="nav-foot">Demo prototype · Not an official government website</p>
     </nav>
@@ -824,48 +826,99 @@
 
 <!-- ================= REGISTER ================= -->
 
-<section id="register" class="page login-page">
+<section id="register" class="page pf-auth">
 
-    <div class="login-box">
+    <div class="pf-auth-wrap">
 
-        <h1>GovShield</h1>
+        <aside class="pf-auth-brand">
+            <div class="pf-brand-mark">GS</div>
+            <h2>Create your GovShield account</h2>
+            <p>One secure account for every government service you apply for. Your mobile number is confirmed before the account opens.</p>
+            <ul class="pf-benefits">
+                <li>Your details are checked against the demo NID record</li>
+                <li>A 6-digit code confirms your mobile number</li>
+                <li>Upload your photo once and use it on every application</li>
+                <li>Track applications and payments in one place</li>
+            </ul>
+            <p class="pf-brand-note">Demo prototype · Not an official government website</p>
+        </aside>
 
-        <p>Create your account. Your details must match the demo NID database.</p>
+        <div class="pf-auth-card">
 
-        <div class="form-group">
-            <label>National ID (10 digits)</label>
-            <input type="text" id="regNid" inputmode="numeric" maxlength="10" placeholder="e.g. 1000000016" autocomplete="off">
-            <small class="reg-error" id="regNidErr"></small>
-        </div>
-
-        <div class="form-group">
-            <label>Full Name</label>
-            <input type="text" id="regName" maxlength="100" placeholder="Name as in the NID record" autocomplete="off">
-            <small class="reg-error" id="regNameErr"></small>
-        </div>
-
-        <div class="form-group">
-            <label>Phone Number</label>
-            <input type="tel" id="regPhone" maxlength="16" placeholder="11-digit phone number" autocomplete="off">
-            <small class="reg-error" id="regPhoneErr"></small>
-        </div>
-
-        <div class="form-group">
-            <label>Password</label>
-            <div class="password-box">
-                <input type="password" id="regPassword" maxlength="128" placeholder="At least 8 characters, letters and numbers" autocomplete="new-password">
-                <button type="button" onclick="toggleRegPassword()">👁</button>
+            <div class="pf-steps" aria-label="Sign-up steps">
+                <div class="pf-step active" id="regStepTab1"><span>1</span>Your details</div>
+                <div class="pf-step-line"></div>
+                <div class="pf-step" id="regStepTab2"><span>2</span>Verify phone</div>
             </div>
-            <small class="reg-error" id="regPasswordErr"></small>
+
+            <div id="regStepDetails">
+
+                <h1>Register</h1>
+                <p class="pf-sub">Your details must match the demo NID database.</p>
+
+                <div class="pf-field">
+                    <label for="regNid">National ID (10 digits)<span class="req">*</span></label>
+                    <input type="text" id="regNid" inputmode="numeric" maxlength="10" placeholder="e.g. 1000000016" autocomplete="off">
+                    <small class="pf-err" id="regNidErr"></small>
+                </div>
+
+                <div class="pf-field">
+                    <label for="regName">Full name<span class="req">*</span></label>
+                    <input type="text" id="regName" maxlength="100" placeholder="Name as in the NID record" autocomplete="off">
+                    <small class="pf-err" id="regNameErr"></small>
+                </div>
+
+                <div class="pf-field">
+                    <label for="regPhone">Mobile number<span class="req">*</span></label>
+                    <input type="tel" id="regPhone" maxlength="16" placeholder="01XXXXXXXXX" autocomplete="off">
+                    <span class="pf-hint">The verification code is sent to this number.</span>
+                    <small class="pf-err" id="regPhoneErr"></small>
+                </div>
+
+                <div class="pf-field">
+                    <label for="regPassword">Password<span class="req">*</span></label>
+                    <div class="password-box">
+                        <input type="password" id="regPassword" maxlength="128" placeholder="At least 8 characters, letters and numbers" autocomplete="new-password">
+                        <button type="button" onclick="toggleRegPassword()">👁</button>
+                    </div>
+                    <small class="pf-err" id="regPasswordErr"></small>
+                </div>
+
+                <button type="button" class="pf-btn" id="registerBtn" onclick="registerUser()">Send verification code</button>
+
+                <div class="register-text">
+                    Already registered? <a onclick="showPage('login')">Back to login</a>
+                </div>
+
+            </div>
+
+            <div id="regStepCode" hidden>
+
+                <h1>Enter your code</h1>
+                <p class="pf-sub">We sent a 6-digit code to <b id="regMaskedPhone">your phone</b>. It is valid for 5 minutes.</p>
+
+                <div class="pf-demo" id="regDemoNote" hidden>
+                    Demo mode: no real SMS is sent. Your code is <strong id="regDemoCode"></strong>
+                </div>
+
+                <div class="pf-field">
+                    <label for="regCode">Verification code<span class="req">*</span></label>
+                    <input type="text" id="regCode" inputmode="numeric" maxlength="6" placeholder="6-digit code" autocomplete="one-time-code">
+                    <small class="pf-err" id="regCodeErr"></small>
+                </div>
+
+                <button type="button" class="pf-btn" id="verifyBtn" onclick="verifyRegistration()">Verify and create account</button>
+
+                <div class="pf-row">
+                    <button type="button" class="pf-link" onclick="backToRegisterDetails()">← Change details</button>
+                    <button type="button" class="pf-link" id="resendBtn" onclick="resendRegistrationCode()" disabled>Resend code</button>
+                </div>
+
+            </div>
+
+            <p id="registerMessage" class="pf-msg" role="alert"></p>
+
         </div>
-
-        <button class="btn btn-primary login-btn" id="registerBtn" onclick="registerUser()">Register</button>
-
-        <div class="register-text">
-            Already registered? <a onclick="showPage('login')">Back to login</a>
-        </div>
-
-        <p id="registerMessage" role="alert" style="margin-top:12px;font-size:14px;"></p>
 
     </div>
 
@@ -1179,82 +1232,228 @@
 
 <section id="apply" class="page">
 
-    <div class="container">
+    <div class="pf-apply">
 
-        <div class="section-title">
-
-            <h2>Apply Online</h2>
-
-            <p>Submit a government service application</p>
-
+        <div class="pf-hero">
+            <div>
+                <div class="pf-kicker">Government services</div>
+                <h2>Apply Online</h2>
+                <p>Fill in every section. Fields marked * are required by the service portal, so an incomplete form cannot be sent.</p>
+            </div>
+            <div class="pf-photo-chip" id="appPhotoChip">
+                <span id="appPhotoText">Checking your profile photo...</span>
+                <a onclick="showPage('profile')">Open profile</a>
+            </div>
         </div>
 
+        <div class="pf-card">
+            <h3><span class="pf-num">1</span> Choose a service</h3>
+            <div class="pf-service-grid" role="group" aria-label="Choose a service">
+                <button type="button" class="pf-service" data-service="Birth Certificate" aria-pressed="false">
+                    <span class="pf-ico" aria-hidden="true">📄</span>
+                    <b>Birth Certificate</b>
+                    <small>Official birth registration copy</small>
+                </button>
+                <button type="button" class="pf-service" data-service="Citizenship Certificate" aria-pressed="false">
+                    <span class="pf-ico" aria-hidden="true">🪪</span>
+                    <b>Citizenship Certificate</b>
+                    <small>Proof of citizenship</small>
+                </button>
+                <button type="button" class="pf-service" data-service="Trade Licence" aria-pressed="false">
+                    <span class="pf-ico" aria-hidden="true">🏪</span>
+                    <b>Trade Licence</b>
+                    <small>Licence for a shop or business</small>
+                </button>
+                <button type="button" class="pf-service" data-service="Other Certificate" aria-pressed="false">
+                    <span class="pf-ico" aria-hidden="true">🗂️</span>
+                    <b>Other Certificate</b>
+                    <small>Any other certificate</small>
+                </button>
+            </div>
+            <select id="appService" hidden>
+                <option>Select Service</option>
+                <option>Birth Certificate</option>
+                <option>Citizenship Certificate</option>
+                <option>Trade Licence</option>
+                <option>Other Certificate</option>
+            </select>
+            <small class="pf-err" id="appServiceErr"></small>
+        </div>
 
-        <div class="login-box" style="margin:auto; width:600px;">
+        <div class="pf-card">
+            <h3><span class="pf-num">2</span> Applicant details</h3>
+            <div class="pf-grid-2">
+                <div class="pf-field">
+                    <label for="appName">Applicant name<span class="req">*</span></label>
+                    <input type="text" id="appName" maxlength="100" placeholder="Full name">
+                    <small class="pf-err" id="appNameErr"></small>
+                </div>
+                <div class="pf-field">
+                    <label for="appNid">National ID<span class="req">*</span></label>
+                    <input type="text" id="appNid" inputmode="numeric" maxlength="17" placeholder="10, 13 or 17 digits">
+                    <small class="pf-err" id="appNidErr"></small>
+                </div>
+                <div class="pf-field">
+                    <label for="appDob">Date of birth<span class="req">*</span></label>
+                    <input type="date" id="appDob">
+                    <small class="pf-err" id="appDobErr"></small>
+                </div>
+                <div class="pf-field">
+                    <label for="appGender">Gender<span class="req">*</span></label>
+                    <select id="appGender">
+                        <option value="">Select gender</option>
+                        <option>Male</option>
+                        <option>Female</option>
+                        <option>Other</option>
+                    </select>
+                    <small class="pf-err" id="appGenderErr"></small>
+                </div>
+                <div class="pf-field">
+                    <label for="appFather">Father's full name<span class="req">*</span></label>
+                    <input type="text" id="appFather" maxlength="100" placeholder="As in your NID">
+                    <small class="pf-err" id="appFatherErr"></small>
+                </div>
+                <div class="pf-field">
+                    <label for="appMother">Mother's full name<span class="req">*</span></label>
+                    <input type="text" id="appMother" maxlength="100" placeholder="As in your NID">
+                    <small class="pf-err" id="appMotherErr"></small>
+                </div>
+                <div class="pf-field">
+                    <label for="appPhone">Mobile number<span class="req">*</span></label>
+                    <input type="tel" id="appPhone" maxlength="16" placeholder="01XXXXXXXXX">
+                    <small class="pf-err" id="appPhoneErr"></small>
+                </div>
+                <div class="pf-field">
+                    <label for="appEmail">Email <span class="pf-hint">(optional)</span></label>
+                    <input type="email" id="appEmail" maxlength="120" placeholder="name@example.com">
+                    <small class="pf-err" id="appEmailErr"></small>
+                </div>
+            </div>
+        </div>
 
-            <div class="form-group">
+        <div class="pf-card">
+            <h3><span class="pf-num">3</span> Address</h3>
+            <div class="pf-grid-2">
+                <div class="pf-field pf-full">
+                    <label for="appAddr">Present address<span class="req">*</span></label>
+                    <input type="text" id="appAddr" maxlength="200" placeholder="House, road, area, district">
+                    <small class="pf-err" id="appAddrErr"></small>
+                </div>
+                <div class="pf-field pf-full">
+                    <label for="appPermAddr">Permanent address<span class="req">*</span></label>
+                    <input type="text" id="appPermAddr" maxlength="200" placeholder="Village or house, post office, district">
+                    <small class="pf-err" id="appPermAddrErr"></small>
+                </div>
+            </div>
+        </div>
 
-                <label>Service Type</label>
+        <div class="pf-card" id="svcSection" hidden>
+            <h3><span class="pf-num">4</span> Service details</h3>
 
-                <select id="appService">
-
-                    <option>Select Service</option>
-                    <option>Birth Certificate</option>
-                    <option>Citizenship Certificate</option>
-                    <option>Trade Licence</option>
-                    <option>Other Certificate</option>
-
-                </select>
-
+            <div class="pf-grid-2 pf-svc-block" id="svcBirth" hidden>
+                <div class="pf-field pf-full">
+                    <label for="appBirthPlace">Place of birth<span class="req">*</span></label>
+                    <input type="text" id="appBirthPlace" maxlength="120" placeholder="Village or town, district">
+                    <small class="pf-err" id="appBirthPlaceErr"></small>
+                </div>
             </div>
 
-
-            <div class="form-group">
-
-                <label>Applicant Name</label>
-
-                <input
-                    type="text"
-                    id="appName"
-                    value="Mithila Parvin"
-                >
-
+            <div class="pf-grid-2 pf-svc-block" id="svcCitizen" hidden>
+                <div class="pf-field">
+                    <label for="appWard">Ward number<span class="req">*</span></label>
+                    <input type="text" id="appWard" maxlength="20" placeholder="e.g. 7">
+                    <small class="pf-err" id="appWardErr"></small>
+                </div>
             </div>
 
-
-            <div class="form-group">
-
-                <label>National ID</label>
-
-                <input
-                    type="text"
-                    id="appNid"
-                    placeholder="Enter NID"
-                >
-
+            <div class="pf-grid-2 pf-svc-block" id="svcTrade" hidden>
+                <div class="pf-field">
+                    <label for="appBizName">Business name<span class="req">*</span></label>
+                    <input type="text" id="appBizName" maxlength="120" placeholder="Shop or business name">
+                    <small class="pf-err" id="appBizNameErr"></small>
+                </div>
+                <div class="pf-field">
+                    <label for="appTradeType">Type of trade<span class="req">*</span></label>
+                    <input type="text" id="appTradeType" maxlength="100" placeholder="e.g. Grocery retail">
+                    <small class="pf-err" id="appTradeTypeErr"></small>
+                </div>
+                <div class="pf-field pf-full">
+                    <label for="appBizAddr">Business address<span class="req">*</span></label>
+                    <input type="text" id="appBizAddr" maxlength="200" placeholder="Shop address">
+                    <small class="pf-err" id="appBizAddrErr"></small>
+                </div>
             </div>
 
+            <div class="pf-svc-block" id="svcOther" hidden>
+                <div class="pf-field">
+                    <label for="appPurpose">Purpose of this certificate<span class="req">*</span></label>
+                    <textarea id="appPurpose" rows="3" maxlength="200" placeholder="Describe why you need it"></textarea>
+                    <small class="pf-err" id="appPurposeErr"></small>
+                </div>
+            </div>
+        </div>
 
-            <div class="form-group">
+        <div class="pf-card">
+            <h3><span class="pf-num">5</span> Declaration and submit</h3>
+            <div class="pf-decl">
+                <input type="checkbox" id="appDeclare">
+                <label for="appDeclare">I confirm that the information above is true and correct. I understand that false information can cause my application to be rejected.<span class="req">*</span></label>
+            </div>
+            <small class="pf-err" id="appDeclareErr"></small>
+            <div class="pf-submit-row">
+                <button type="button" class="pf-btn" id="applySubmitBtn" onclick="submitApplication()">Submit Application</button>
+                <p class="pf-hint">Your profile photo is attached to the application automatically.</p>
+            </div>
+        </div>
 
-                <label>Address</label>
+    </div>
 
-                <input
-                    type="text"
-                    id="appAddr"
-                    placeholder="Enter address"
-                >
+</section>
 
+
+<section id="profile" class="page">
+
+    <div class="pf-profile">
+
+        <div class="pf-hero">
+            <div>
+                <div class="pf-kicker">My account</div>
+                <h2>My Profile</h2>
+                <p>Your photo is attached to every application you submit.</p>
+            </div>
+        </div>
+
+        <div class="pf-profile-grid">
+
+            <div class="pf-card pf-avatar-card">
+                <div class="pf-avatar" id="profileAvatar">
+                    <span id="profileInitial">G</span>
+                </div>
+                <h3 id="profileName">Citizen</h3>
+                <p class="pf-sub" id="profileNid"></p>
+                <span class="pf-pill warn" id="profilePhotoStatus">No photo yet</span>
             </div>
 
+            <div class="pf-card">
+                <h3><span class="pf-num">1</span> Upload your photo</h3>
+                <p class="pf-sub">Use a clear, recent photo of your face on a plain background. JPG or PNG, up to 2 MB.</p>
 
-            <button
-                class="btn btn-primary"
-                onclick="submitApplication()">
+                <label class="pf-drop" for="profilePhotoInput">
+                    <span class="pf-drop-ico" aria-hidden="true">📷</span>
+                    <b>Choose a photo from your device</b>
+                    <span class="pf-hint">JPG or PNG · max 2 MB</span>
+                </label>
+                <input type="file" id="profilePhotoInput" accept="image/jpeg,image/png" class="pf-sr">
 
-                Submit Application
+                <img id="profilePreview" class="pf-preview" alt="Selected photo preview" hidden>
 
-            </button>
+                <div class="pf-actions">
+                    <button type="button" class="pf-btn" id="profileSaveBtn" onclick="saveProfilePhoto()" disabled>Save photo</button>
+                    <button type="button" class="pf-link danger" id="profileRemoveBtn" onclick="removeProfilePhoto()" hidden>Remove photo</button>
+                </div>
+
+                <p id="profileMessage" class="pf-msg" role="alert"></p>
+            </div>
 
         </div>
 
@@ -1858,6 +2057,7 @@
         document.getElementById("navLogin").style.display = loggedIn ? "none" : "";
         document.getElementById("navRegister").style.display = loggedIn ? "none" : "";
         document.getElementById("navDashboard").style.display = loggedIn ? "" : "none";
+        document.getElementById("navProfile").style.display = loggedIn ? "" : "none";
         document.getElementById("navLogout").style.display = loggedIn ? "" : "none";
         document.querySelectorAll(".page").forEach(page => page.classList.remove("active"));
         const selectedPage = document.getElementById(pageId);
@@ -1915,60 +2115,6 @@
     function toggleRegPassword() {
         const field = document.getElementById("regPassword");
         field.type = field.type === "password" ? "text" : "password";
-    }
-
-    async function registerUser() {
-        const nid = document.getElementById("regNid").value.trim();
-        const name = document.getElementById("regName").value.trim();
-        const phone = document.getElementById("regPhone").value.trim();
-        const password = document.getElementById("regPassword").value;
-        const message = document.getElementById("registerMessage");
-        const fieldIds = { nid: "regNidErr", name: "regNameErr", phone: "regPhoneErr", password: "regPasswordErr" };
-        Object.values(fieldIds).forEach(id => document.getElementById(id).textContent = "");
-        message.textContent = "";
-
-        let bad = false;
-        if (!/^[0-9]{10}$/.test(nid)) { document.getElementById("regNidErr").textContent = "NID must contain exactly 10 digits."; bad = true; }
-        if (name.length < 3) { document.getElementById("regNameErr").textContent = "Enter your full name."; bad = true; }
-        if (!/^(\+?88)?[0-9]{11}$/.test(phone.replace(/[\s-]/g, ""))) { document.getElementById("regPhoneErr").textContent = "Enter an 11-digit phone number."; bad = true; }
-        if (password.length < 8 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) { document.getElementById("regPasswordErr").textContent = "At least 8 characters with a letter and a number."; bad = true; }
-        if (bad) return;
-
-        const button = document.getElementById("registerBtn");
-        button.disabled = true;
-        button.textContent = "Checking...";
-        try {
-            const response = await fetch("/api/register", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ nid, name, phone, password })
-            });
-            const result = await response.json();
-            if (!response.ok) {
-                if (result.errors) {
-                    for (const key in result.errors) {
-                        if (fieldIds[key]) document.getElementById(fieldIds[key]).textContent = result.errors[key];
-                    }
-                }
-                throw new Error(result.error || "Registration failed.");
-            }
-            message.style.color = "#15803d";
-            message.textContent = "✓ Registration successful! Redirecting to login...";
-            document.getElementById("regPassword").value = "";
-            setTimeout(() => {
-                document.getElementById("loginId").value = nid;
-                document.getElementById("loginMessage").style.color = "#15803d";
-                document.getElementById("loginMessage").textContent = "Registration successful. Please log in.";
-                message.textContent = "";
-                showPage("login");
-            }, 1500);
-        } catch (error) {
-            message.style.color = "#b91c1c";
-            message.textContent = error.message;
-        } finally {
-            button.disabled = false;
-            button.textContent = "Register";
-        }
     }
 
     async function logoutDevice(button) {
@@ -2102,6 +2248,8 @@
 <script src="js/documents.js"></script>
 <script src="js/apply.js"></script>
 <script src="js/pay.js"></script>
+<script src="js/register_verify.js"></script>
+<script src="js/profile.js"></script>
 
 <footer class="site-footer">
     <div class="footer-inner">

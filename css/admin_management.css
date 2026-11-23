@@ -70,3 +70,7 @@
     .adm-app .adm-mgmt-toolbar .adm-input,
     .adm-app .adm-mgmt-toolbar .adm-select { min-width: 0; width: 100%; }
 }
+
+/* applicant photo in the case dialog */
+.adm-mgmt-photo { margin: 6px 0 12px; }
+.adm-mgmt-photo img { width: 120px; height: 120px; object-fit: cover; border-radius: 12px; border: 1px solid #d6dde6; }

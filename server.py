@@ -44,6 +44,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+import citizen_extras                       # sign-up with phone code, profile photo, application form
+import sms_gateway                          # SMS provider settings and one-time codes
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "govshield.db")
 MAX_BODY = 10 * 1024          # requests bigger than 10 KB are refused
@@ -451,6 +454,7 @@ def init_db():
             conn.executescript(SCHEMA)
             ensure_column(conn, "audit_log", "detail", "TEXT NOT NULL DEFAULT ''")
             ensure_column(conn, "payments", "payer_nid", "TEXT NOT NULL DEFAULT ''")
+            citizen_extras.ensure_schema(conn)
             seed_if_empty(conn)
             seed_authorized_users(conn)
             seed_admin_user(conn)
@@ -524,12 +528,19 @@ def create_application(clean):
     conn = connect()
     try:
         with conn:
+            extra = list(citizen_extras.APPLICATION_TEXT_KEYS)
             cur = conn.execute(
-                "INSERT INTO applications (service, applicant_name, national_id, address) VALUES (?, ?, ?, ?)",
-                (clean["service"], clean["name"], clean["nid"], clean["address"]),
+                "INSERT INTO applications (service, applicant_name, national_id, address, %s) VALUES (?, ?, ?, ?, %s)"
+                % (", ".join(extra), ", ".join(["?"] * len(extra))),
+                [clean["service"], clean["name"], clean["nid"], clean["address"]] + [clean[key] for key in extra],
             )
             new_id = cur.lastrowid
             conn.execute("UPDATE applications SET app_code = 'APP-' || (1000 + id) WHERE id = ?", (new_id,))
+            # the profile photo is copied into the application when it is submitted
+            conn.execute(
+                "UPDATE applications SET photo_data = (SELECT photo_data FROM authorized_users WHERE id = ?), "
+                "photo_type = (SELECT photo_type FROM authorized_users WHERE id = ?) WHERE id = ?",
+                (clean.get("user_id", 0), clean.get("user_id", 0), new_id))
         row = conn.execute("SELECT * FROM applications WHERE id = ?", (new_id,)).fetchone()
         return application_json(row)
     finally:
@@ -739,7 +750,11 @@ def validate_application(data):
     if not 5 <= len(address) <= 200:
         errors["address"] = "Enter your address (5 to 200 characters)."
 
-    return {"service": service, "name": name, "nid": nid, "address": address}, errors
+    extra, extra_errors = citizen_extras.clean_application(data)
+    errors.update(extra_errors)
+    clean = {"service": service, "name": name, "nid": nid, "address": address}
+    clean.update(extra)
+    return clean, errors
 
 
 def validate_payment(data):
@@ -875,9 +890,15 @@ class Handler(BaseHTTPRequestHandler):
             log("AUTHENTICATED authorized demo account %s" % user["nid"])
             return 200, {"token": token, "user": {"name": user["name"], "nid": user["nid"]}}
 
+        # sign-up with a phone code, and the profile photo (citizen_extras.py)
+        if path in ("/api/register/code", "/api/register/verify", "/api/me/photo"):
+            return citizen_extras.handle(sys.modules[__name__], self, method, path)
+
         if path == "/api/register":
             if method != "POST":
                 raise ApiError(405, "Method not allowed.")
+            if sms_gateway.otp_required(sys.modules[__name__]):
+                raise ApiError(403, "Phone verification is on. Please use the verification step to register.")
             if not register_rate_ok(self.client_address[0]):
                 raise ApiError(429, "Too many registration attempts. Please wait a few minutes and try again.")
             data = self._read_json()
@@ -974,6 +995,10 @@ class Handler(BaseHTTPRequestHandler):
             clean, errors = validate_application(data)
             if errors:
                 raise ApiError(400, "Please correct the highlighted fields.", errors)
+            if not citizen_extras.user_has_photo(sys.modules[__name__], user["id"]):
+                raise ApiError(400, "Please upload your photo in your profile first.",
+                               {"photo": "Upload your photo in your profile first."})
+            clean["user_id"] = user["id"]
             app = create_application(clean)
             log("SAVED application %s | %s | %s | NID %s" % (app["id"], app["service"], app["name"], app["nid"]))
             self.audit_detail = "%s - %s" % (app["id"], app["service"])

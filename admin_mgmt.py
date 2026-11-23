@@ -62,6 +62,17 @@ def handle(srv, handler, method, path):
         require(srv, profile, "admins.manage")
         return admin_action(srv, handler, admin, int(match.group(1)), match.group(2))
 
+    if sub in ("/sms", "/sms/test"):
+        require(srv, profile, "sms.manage")
+        import sms_gateway
+        if sub == "/sms" and method == "GET":
+            return 200, sms_gateway.public_settings(srv)
+        if sub == "/sms" and method == "POST":
+            return sms_gateway.save(srv, handler, admin)
+        if sub == "/sms/test" and method == "POST":
+            return sms_gateway.test(srv, handler, admin)
+        raise srv.ApiError(405, "Method not allowed.")
+
     return ops.handle(srv, handler, admin, profile, method, sub, passed)
 
 
